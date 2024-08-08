@@ -1,0 +1,32 @@
+# Possible colors: red, green, yellow, blue, magenta, cyan and white.
+colorscheme:bitcoin
+
+### Timestamp
+cs_re:cyan:^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z
+
+### Title category
+
+## UpdateTip
+cs_re:green,,bold:UpdateTip:
+
+## ERROR
+cs_re:red,,bold:ERROR:
+
+## [net|http|rpc]
+cs_re:blue,,bold:\[(net|http|rpc)(\:[a-zA-Z]+)?\]
+cs_re:cyan,,bold:Requesting block
+cs_re:green,,bold:received block
+cs_re:red:disconnecting peer=[0-9]+
+cs_re:green:Added connection peer=[0-9]+
+
+## [coindb]
+cs_re:yellow,,bold:\[coindb(\:[a-zA-Z]+)?\]
+
+## [tor|i2p]
+cs_re:magenta,,bold:\[(tor|i2p)(\:[a-zA-Z]+)?\]
+
+## [blockstorage]
+cs_re:white,,bold:\[blockstorage(\:[a-zA-Z]+)?\]
+
+## [leveldb]
+cs_re:red,,bold:\[(leveldb|mempool)(\:[a-zA-Z]+)?\]
