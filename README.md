@@ -1,5 +1,7 @@
 # NodeWatch
 
+![NodeWatch Screenshot](https://github.com/casilva-dev/NodeWatch/blob/master/screenshot.png)
+
 NodeWatch is a CLI dashboard for monitoring your Bitcoin fullnode, providing essential information about the status of the node, network, and peers.
 
 ## Features
