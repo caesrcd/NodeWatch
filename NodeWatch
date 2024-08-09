@@ -22,9 +22,14 @@ if [ -f "$CONFIG_FILE" ]; then
     IOSTAT_DEVICE=$(awk -F '=' '/^IOSTAT_DEVICE=/ {printf "%s,", $2}' "$CONFIG_FILE" | sed 's/,$//')
     SIZE_SCREEN=$(awk -F '=' '/^SIZE_SCREEN=/ {last=$2} END {print last}' "$CONFIG_FILE")
 fi
-[ -z "$BITCOIN_DATADIR" ] && BITCOIN_DATADIR="~/.bitcoin"
-[ -z "$IOSTAT_DEVICE" ] && IOSTAT_DEVICE=$(df $BITCOIN_DATADIR | awk 'NR==2 {print $1}')
 
+[ -z "$BITCOIN_DATADIR" ] && BITCOIN_DATADIR="~/.bitcoin"
+if [ ! -f "$BITCOIN_DATADIR/debug.log" ]; then
+    echo "The debug.log file not found. Verify that the Bitcoin directory path is correct."
+    exit 1
+fi
+
+[ -z "$IOSTAT_DEVICE" ] && IOSTAT_DEVICE=$(df $BITCOIN_DATADIR | awk 'NR==2 {print $1}')
 n_devices=$(echo "$IOSTAT_DEVICE" | tr ',' '\n' | wc -l)
 
 if [ -n "$SIZE_SCREEN" ]; then
