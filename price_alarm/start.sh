@@ -24,21 +24,33 @@ get_price() {
 }
 
 update_price() {
-    json_btcbrl=$(curl -s https://api.coinbase.com/v2/prices/BTC-BRL/spot)
-    json_btcusd=$(curl -s https://api.coinbase.com/v2/prices/BTC-USD/spot)
-    if [[ $json_btcbrl =~ "Not Found" || $json_btcusd =~ "Not Found" ]]; then
-        exit 1
+    if [[ "$1" == "coinbase" ]]; then
+        json_btcusd=$(curl -s https://api.coinbase.com/v2/prices/BTC-USD/spot)
+        json_btcbrl=$(curl -s https://api.coinbase.com/v2/prices/BTC-BRL/spot)
+        price_usd=$(echo $json_btcusd | jq .data.amount)
+        price_brl=$(echo $json_btcbrl | jq .data.amount)
+    elif [[ "$1" == "binance" ]]; then
+        json_btcusd=$(curl -s https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT)
+        json_btcbrl=$(curl -s https://api.binance.com/api/v3/ticker/price?symbol=BTCBRL)
+        price_usd=$(echo $json_btcusd | jq .price)
+        price_brl=$(echo $json_btcbrl | jq .price)
     fi
 
-    price_usd=$(echo $json_btcusd | jq .data.amount | sed 's/"//g' | xargs -I {} printf "%.2f" {} | sed 's/,/./g')
-    price_brl=$(echo $json_btcbrl | jq .data.amount | sed 's/"//g' | xargs -I {} printf "%.2f" {} | sed 's/,/./g')
-    json_data="[{\"timestamp\":$(date +%s),\"usd\":$price_usd,\"brl\":$price_brl}]"
+    if [[ "$price_usd" == "null" || "$price_brl" == "null" ]]; then
+        return 1
+    fi
+
+    price_usd=$(echo $price_usd | sed 's/"//g' | xargs -I {} printf "%.2f" {} | sed 's/,/./g')
+    price_brl=$(echo $price_brl | sed 's/"//g' | xargs -I {} printf "%.2f" {} | sed 's/,/./g')
+
+    json_data="[{\"timestamp\":$(date +%s),\"usd\":$price_usd}]"
     prices=$(echo $prices | jq ". += $json_data")
 
     # Filters the JSON and keeps only records with timestamps from the last 24 hours
     old_time=$(date -d "1 day ago 1 minute ago" +%s)
     prices=$(echo $prices | jq --argjson cutoff "$old_time" '[.[] | select(.timestamp >= $cutoff)]')
     echo $prices | jq -c . > "$SCRIPT_DIR/prices.json"
+    return 0
 }
 
 # Sets the color of the current price compared to the previous price
@@ -215,10 +227,17 @@ check_alarm() {
 }
 
 while true; do
-    update_price
+    update_price "coinbase"
+    if [ "$?" -eq 1 ]; then
+        update_price "binance"
+        if [ "$?" -eq 1 ]; then
+            echo "Exchange APIs are currently not working."
+            exit 1
+        fi
+    fi
 
-    body="\n$(printf '%*s' $(( ( 64 - 23 ) / 2 )) '')"
-    body+="Bitcoin Price - Coinbase\n\n"
+    body="\n$(printf '%*s' $(( ( 64 - 13 ) / 2 )) '')"
+    body+="Bitcoin Price\n\n"
 
     # Sets the color of the current dollar price compared to the price 30 seconds ago
     price_ago=$(get_price usd 30sec)
