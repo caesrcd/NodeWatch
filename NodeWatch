@@ -52,7 +52,7 @@ fi
 [[ $lines -ge 46 ]] && line3=$(( $lines - 42 )) || line3=$(( $lines - 28 ))
 
 TMUX_CMD="tmux new-session -s nodewatch \
-    \"bash -c $SCRIPT_DIR/price_alarm/start.sh\" \; \
+    \"watch -c -n 30 -t $SCRIPT_DIR/price_alarm/start.sh\" \; \
     set-option status off \; bind-key -n z detach-client \; bind-key -n q kill-session \; \
     resize-window -x $cols -y $lines \; \
     split-window -v -l $line2 \"watch -c -n 30 -t bitcoin-cli -rpcwait -getinfo -color=always\" \; \
@@ -65,5 +65,5 @@ TMUX_CMD+="split-window -t 0 -h -l 20 \"watch -n 60 -t -c 'bash -c $SCRIPT_DIR/e
     split-window -t $([[ $lines -ge 46 ]] && echo 4 || echo 3) -h -l $(( $cols - 38 )) \
     \"multitail --config $SCRIPT_DIR/multitail/config -D -cS bitcoin $BITCOIN_DATADIR/debug.log\" \; \
     send-keys C-m"
-    
+
 eval $TMUX_CMD

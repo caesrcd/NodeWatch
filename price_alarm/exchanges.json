@@ -1,0 +1,18 @@
+{
+    "coinbase": {
+        "api": {
+            "usd": "https://api.coinbase.com/v2/prices/BTC-USD/spot",
+            "eur": "https://api.coinbase.com/v2/prices/BTC-EUR/spot",
+            "brl": "https://api.coinbase.com/v2/prices/BTC-BRL/spot"
+        },
+        "jq_price": ".data.amount"
+    },
+    "binance": {
+        "api": {
+            "usd": "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+            "eur": "https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR",
+            "brl": "https://api.binance.com/api/v3/ticker/price?symbol=BTCBRL"
+        },
+        "jq_price": ".price"
+    }
+}
