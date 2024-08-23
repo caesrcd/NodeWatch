@@ -18,8 +18,17 @@ if [[ -f "$SCRIPT_DIR/prices.json" ]]; then
         prices=$(cat "$SCRIPT_DIR/prices.json")
     fi
 fi
+
+last_alarm=(0 0 0 0 0 0)
+if [[ -f "$SCRIPT_DIR/last_alarm.json" ]]; then
+    if jq -e . "$SCRIPT_DIR/last_alarm.json" >/dev/null 2>&1; then
+        last_alarm=($(cat "$SCRIPT_DIR/last_alarm.json" | jq -r '.[]'))
+    fi
+fi
+
 time_now=$(date +%s)
 
+# Gets the price according to the symbol parameter and defined time.
 get_price() {
     time_gap=$([ -n "$2" ] && date -d "$2 ago" +%s || echo $time_now)
     lower_bound=$((time_gap - 20))
@@ -29,6 +38,7 @@ get_price() {
     [[ "$value" != "[]" ]] && echo $value | jq -r ".[0].$1" || echo ""
 }
 
+# Updates the list of prices obtained from one of the exchange APIs.
 update_price() {
     re='^[0-9]+([.][0-9]+)?$'
     json_data="[{\"timestamp\":$(date +%s)"
@@ -108,13 +118,14 @@ ls_vartime() {
     echo "$text"
 }
 
-last_alarm=(0 0 0 0 0 0)
+# Checks price variations and sounds the alarm according to conditions.
 check_alarm() {
     price_now=$(get_price usd 0sec)
     price_ago=( $(get_price usd 5min) $(get_price usd 15min) $(get_price usd 30min)
                 $(get_price usd 1hour) $(get_price usd 2hour) $(get_price usd 4hour)
                 $(get_price usd 8hour) $(get_price usd 12hour) $(get_price usd 1day) )
 
+    index_actived=""
     if (( $time_now - ${last_alarm[0]} >= 36000 )) && {
             ([[ -n "${price_ago[8]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[8]} - 1 > 0.13" | bc -l) ))) ||
@@ -123,7 +134,7 @@ check_alarm() {
             ([[ -n "${price_ago[6]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[6]} - 1 > 0.07" | bc -l) )))
         }; then
-        last_alarm[0]=$(date +%s)
+        index_actived=0
         play -q "$SCRIPT_DIR/alarms/win-high-long.mp3" &
     elif (( $time_now - ${last_alarm[0]} >= 36000 )) && {
             ([[ -n "${price_ago[8]}" ]] &&
@@ -133,7 +144,7 @@ check_alarm() {
             ([[ -n "${price_ago[6]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[6]} - 1 < -0.07" | bc -l) )))
         }; then
-        last_alarm[0]=$(date +%s)
+        index_actived=0
         play -q "$SCRIPT_DIR/alarms/loss-high-long.mp3" &
     elif (( $time_now - ${last_alarm[1]} >= 36000 )) && {
             ([[ -n "${price_ago[8]}" ]] &&
@@ -143,7 +154,7 @@ check_alarm() {
             ([[ -n "${price_ago[6]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[6]} - 1 > 0.035" | bc -l) )))
         }; then
-        last_alarm[1]=$(date +%s)
+        index_actived=1
         play -q "$SCRIPT_DIR/alarms/win-small-long.mp3" &
     elif (( $time_now - ${last_alarm[1]} >= 36000 )) && {
             ([[ -n "${price_ago[8]}" ]] &&
@@ -153,7 +164,7 @@ check_alarm() {
             ([[ -n "${price_ago[6]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[6]} - 1 < -0.035" | bc -l) )))
         }; then
-        last_alarm[1]=$(date +%s)
+        index_actived=1
         play -q "$SCRIPT_DIR/alarms/loss-small-long.wav" &
     elif (( $time_now - ${last_alarm[2]} >= 7200 )) && {
             ([[ -n "${price_ago[5]}" ]] &&
@@ -163,7 +174,7 @@ check_alarm() {
             ([[ -n "${price_ago[3]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[3]} - 1 > 0.03" | bc -l) )))
         }; then
-        last_alarm[2]=$(date +%s)
+        index_actived=2
         play -q "$SCRIPT_DIR/alarms/win-high-long.mp3" &
     elif (( $time_now - ${last_alarm[2]} >= 7200 )) && {
             ([[ -n "${price_ago[5]}" ]] &&
@@ -173,7 +184,7 @@ check_alarm() {
             ([[ -n "${price_ago[3]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[3]} - 1 < -0.03" | bc -l) )))
         }; then
-        last_alarm[2]=$(date +%s)
+        index_actived=2
         play -q "$SCRIPT_DIR/alarms/loss-high-long.mp3" &
     elif (( $time_now - ${last_alarm[3]} >= 7200 )) && {
             ([[ -n "${price_ago[5]}" ]] &&
@@ -183,7 +194,7 @@ check_alarm() {
             ([[ -n "${price_ago[3]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[3]} - 1 > 0.02" | bc -l) )))
         }; then
-        last_alarm[3]=$(date +%s)
+        index_actived=3
         play -q "$SCRIPT_DIR/alarms/win-small-long.mp3" &
     elif (( $time_now - ${last_alarm[3]} >= 7200 )) && {
             ([[ -n "${price_ago[5]}" ]] &&
@@ -193,7 +204,7 @@ check_alarm() {
             ([[ -n "${price_ago[3]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[3]} - 1 < -0.02" | bc -l) )))
         }; then
-        last_alarm[3]=$(date +%s)
+        index_actived=3
         play -q "$SCRIPT_DIR/alarms/loss-small-long.wav" &
     elif (( $time_now - ${last_alarm[4]} >= 600 )) && {
             ([[ -n "${price_ago[2]}" ]] &&
@@ -203,7 +214,7 @@ check_alarm() {
             ([[ -n "${price_ago[0]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[0]} - 1 > 0.012" | bc -l) )))
         }; then
-        last_alarm[4]=$(date +%s)
+        index_actived=4
         play -q "$SCRIPT_DIR/alarms/win-high-short.mp3" &
     elif (( $time_now - ${last_alarm[4]} >= 600 )) && {
             ([[ -n "${price_ago[2]}" ]] &&
@@ -213,7 +224,7 @@ check_alarm() {
             ([[ -n "${price_ago[0]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[0]} - 1 < -0.012" | bc -l) )))
         }; then
-        last_alarm[4]=$(date +%s)
+        index_actived=4
         play -q "$SCRIPT_DIR/alarms/loss-high-short.mp3" &
     elif (( $time_now - ${last_alarm[5]} >= 900 )) && {
             ([[ -n "${price_ago[2]}" ]] &&
@@ -223,7 +234,7 @@ check_alarm() {
             ([[ -n "${price_ago[0]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[0]} - 1 > 0.006" | bc -l) )))
         }; then
-        last_alarm[5]=$(date +%s)
+        index_actived=5
         play -q "$SCRIPT_DIR/alarms/win-small-short.mp3" &
     elif (( $time_now - ${last_alarm[5]} >= 900 )) && {
             ([[ -n "${price_ago[2]}" ]] &&
@@ -233,8 +244,14 @@ check_alarm() {
             ([[ -n "${price_ago[0]}" ]] &&
                 (( $(echo "$price_now / ${price_ago[0]} - 1 < -0.006" | bc -l) )))
         }; then
-        last_alarm[5]=$(date +%s)
+        index_actived=5
         play -q "$SCRIPT_DIR/alarms/loss-small-short.mp3" &
+    fi
+
+    if [[ -n "$index_actived" ]]; then
+        last_alarm[$index_actived]=$(date +%s)
+        json=$(printf '%s\n' "${last_alarm[@]}" | jq -cs .)
+        echo $json | jq -c . > "$SCRIPT_DIR/last_alarm.json"
     fi
 }
 
