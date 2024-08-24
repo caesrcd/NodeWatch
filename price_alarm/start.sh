@@ -92,9 +92,9 @@ ls_vartime() {
     ls_ago=$2
     line_title=""
     line_per=""
-    price_now=$(get_price usd 0sec)
+    price_now=$(get_price $curdef 0sec)
     for index in "${!ls_title[@]}"; do
-        price_ago="$(get_price usd ${ls_ago[$index]})"
+        price_ago="$(get_price $curdef ${ls_ago[$index]})"
         if [[ -n "$price_ago" ]]; then
             title="$(printf '%*s' $(( (8 - ${#ls_title[$index]}) / 2 )) '')${ls_title[$index]}"
             title+="$(printf '%*s' $(( 8 - ${#title} )) '')"
@@ -120,10 +120,10 @@ ls_vartime() {
 
 # Checks price variations and sounds the alarm according to conditions.
 check_alarm() {
-    price_now=$(get_price usd 0sec)
-    price_ago=( $(get_price usd 5min) $(get_price usd 15min) $(get_price usd 30min)
-                $(get_price usd 1hour) $(get_price usd 2hour) $(get_price usd 4hour)
-                $(get_price usd 8hour) $(get_price usd 12hour) $(get_price usd 1day) )
+    price_now=$(get_price $curdef 0sec)
+    price_ago=( $(get_price $curdef 5min) $(get_price $curdef 15min) $(get_price $curdef 30min)
+                $(get_price $curdef 1hour) $(get_price $curdef 2hour) $(get_price $curdef 4hour)
+                $(get_price $curdef 8hour) $(get_price $curdef 12hour) $(get_price $curdef 1day) )
 
     index_actived=""
     if (( $time_now - ${last_alarm[0]} >= 36000 )) && {
@@ -267,24 +267,25 @@ if [[ -z "$exchange_selected" ]]; then
     echo "Exchange APIs are currently not working."
     exit 1
 fi
+curdef=$(echo $exchanges | jq -r ".${exchange_selected}.api | to_entries | first(.[]).key")
 
 body="$(printf '%*s' $(( ( 64 - 13 ) / 2 )) '')"
 body+="Bitcoin Price\n\n"
 
 # Sets the color of the current dollar price compared to the price 30 seconds ago
-price_now=$(get_price usd 0sec)
-price_ago=$(get_price usd 30sec)
+price_now=$(get_price $curdef 0sec)
+price_ago=$(get_price $curdef 30sec)
 color=$(variation_color $price_now $price_ago)
 
 price_formatted=$(awk "BEGIN {printf \"%'\047.2f\", $price_now}")
 
 # Current dollar price with capital letters
-body+="\033[1;${color:5}$(figlet -f big -w 64 -c -m-0 "$ $price_formatted")\033[0m\n"
+body+="\033[1;${color:5}$(figlet -f big -w 64 -c -m-0 "$price_formatted")\033[0m\n"
 
 # Current others price with small letters
 length=0
 for currency in $(echo $exchanges | jq -r ".${exchange_selected}.api | to_entries[] | .key"); do
-    if [[ "$currency" == "usd" ]]; then
+    if [[ "$currency" == "$curdef" ]]; then
         continue
     fi
     small_prices+="\033[0m · "
