@@ -2,6 +2,7 @@
 
 SCRIPT_PATH=$(readlink -f "$0")
 SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
+COLS=$(tput cols)
 
 if ! [[ -f "$SCRIPT_DIR/exchanges.json" ]]; then
     echo "File 'exchanges.json' not found."
@@ -98,6 +99,9 @@ ls_vartime() {
         if [[ -n "$price_ago" ]]; then
             title="$(printf '%*s' $(( (8 - ${#ls_title[$index]}) / 2 )) '')${ls_title[$index]}"
             title+="$(printf '%*s' $(( 8 - ${#title} )) '')"
+            if (( ${#line_title} + ${#title} > $COLS )); then
+                break;
+            fi
             per_num=$(echo "scale=4; (($price_now / $price_ago - 1) * 100)" | bc)
             color=$(variation_color $per_num 0)
             per_num=$(awk "BEGIN {printf \"%+.2f\", $per_num}")"%"
@@ -111,9 +115,9 @@ ls_vartime() {
     if [[ -z "$line_title" ]]; then
         line_title="Loading..."
     fi
-    text="$(printf '%*s' $(( ( 64 - ${#line_title} ) / 2 )) '')\033[37m${line_title}\033[0m\n"
+    text="$(printf '%*s' $(( ( $COLS - ${#line_title} ) / 2 )) '')\033[37m${line_title}\033[0m\n"
     if [[ "${#line_per}" -gt 0 ]]; then
-        text+="$(printf '%*s' $(( ( 64 - ${#line_title} ) / 2 )) '')\033[37m${line_per}\033[0m"
+        text+="$(printf '%*s' $(( ( $COLS - ${#line_title} ) / 2 )) '')\033[37m${line_per}\033[0m"
     fi
     echo "$text"
 }
@@ -269,7 +273,7 @@ if [[ -z "$exchange_selected" ]]; then
 fi
 curdef=$(echo $exchanges | jq -r ".${exchange_selected}.api | to_entries | first(.[]).key")
 
-body="$(printf '%*s' $(( ( 64 - 13 ) / 2 )) '')"
+body="$(printf '%*s' $(( ( $COLS - 13 ) / 2 )) '')"
 body+="Bitcoin Price\n\n"
 
 # Sets the color of the current dollar price compared to the price 30 seconds ago
@@ -280,10 +284,16 @@ color=$(variation_color $price_now $price_ago)
 price_formatted=$(awk "BEGIN {printf \"%'\047.2f\", $price_now}")
 
 # Current dollar price with capital letters
-body+="\033[1;${color:5}$(figlet -f big -w 64 -c -m-0 "$price_formatted")\033[0m\n"
+if [[ $COLS -gt 60 ]]; then font="big"
+elif [[ $COLS -gt 50 ]]; then font="small"
+elif [[ $COLS -gt 40 ]]; then font="script"
+else font="mini"
+fi
+
+body+="\033[1;${color:5}$(figlet -f $font -w $COLS -c -m-0 "$price_formatted")\033[0m\n"
 
 # Current others price with small letters
-length=0
+length=4
 for currency in $(echo $exchanges | jq -r ".${exchange_selected}.api | to_entries[] | .key"); do
     if [[ "$currency" == "$curdef" ]]; then
         continue
@@ -302,9 +312,8 @@ for currency in $(echo $exchanges | jq -r ".${exchange_selected}.api | to_entrie
     small_prices+="${color}${price_formatted}"
 done
 small_prices+="\033[0m · "
-length=$(( length + 3 ))
 
-body+=$(echo -n "$(printf '%*s' $(( (64 - $length) / 2 )) '')")"$small_prices"
+body+=$(echo -n "$(printf '%*s' $(( ($COLS - $length) / 2 )) '')")"$small_prices"
 
 ls_title=("5m" "15m" "1h" "2h" "4h" "8h" "12h" "1d")
 ls_ago=("5min" "15min" "1hour" "2hour" "4hour" "8hour" "12hour" "1day")
