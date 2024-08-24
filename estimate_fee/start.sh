@@ -3,20 +3,24 @@
 cols=$(tput cols)
 
 feehigh=$(bitcoin-cli -rpcwait estimatesmartfee 1 "economical" | jq .feerate)
+feehigh=$(awk -v fee="$feehigh" 'BEGIN {printf "%.8f", fee}')
 feehigh=$(echo "$feehigh * 100000" | bc)
-feehigh=$(awk "BEGIN {printf \"%.0f\", $feehigh}")" sat/vB"
+feehigh=$(awk -v fee="$feehigh" "BEGIN {printf \"%.0f\", fee}")" sat/vB"
 
 feemedium=$(bitcoin-cli -rpcwait estimatesmartfee 3 "economical" | jq .feerate)
+feemedium=$(awk -v fee="$feemedium" 'BEGIN {printf "%.8f", fee}')
 feemedium=$(echo "$feemedium * 100000" | bc)
-feemedium=$(awk "BEGIN {printf \"%.0f\", $feemedium}")" sat/vB"
+feemedium=$(awk -v fee="$feemedium" "BEGIN {printf \"%.0f\", fee}")" sat/vB"
 
 feelow=$(bitcoin-cli -rpcwait estimatesmartfee 5 "economical" | jq .feerate)
+feelow=$(awk -v fee="$feelow" 'BEGIN {printf "%.8f", fee}')
 feelow=$(echo "$feelow * 100000" | bc)
-feelow=$(awk "BEGIN {printf \"%.0f\", $feelow}")" sat/vB"
+feelow=$(awk -v fee="$feelow" "BEGIN {printf \"%.0f\", fee}")" sat/vB"
 
 feenoprio=$(bitcoin-cli -rpcwait estimatesmartfee 1000 "economical" | jq .feerate)
+feenoprio=$(awk -v fee="$feenoprio" 'BEGIN {printf "%.8f", fee}')
 feenoprio=$(echo "$feenoprio * 100000" | bc)
-feenoprio=$(awk "BEGIN {printf \"%.0f\", $feenoprio}")" sat/vB"
+feenoprio=$(awk -v fee="$feenoprio" "BEGIN {printf \"%.0f\", fee}")" sat/vB"
 
 echo -e "$(printf '%*s' $(( ($cols - 16) / 2 )) '')Transaction Fees\n"
 echo -e "$(printf '%*s' $(( ($cols - 4) / 2 )) '')\033[0mHigh"
