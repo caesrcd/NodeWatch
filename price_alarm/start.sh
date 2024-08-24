@@ -256,7 +256,7 @@ check_alarm() {
 }
 
 exchange_selected=""
-for exchange in $(echo $exchanges | jq -r "keys[]"); do
+for exchange in $(echo $exchanges | jq -r "to_entries[] | .key"); do
     update_price "$exchange"
     if [ "$?" -eq 0 ]; then
         exchange_selected="$exchange"
@@ -282,10 +282,8 @@ price_formatted=$(awk "BEGIN {printf \"%'\047.2f\", $price_now}")
 body+="\033[1;${color:5}$(figlet -f big -w 64 -c -m-0 "$ $price_formatted")\033[0m\n"
 
 # Current others price with small letters
-length=4
-length=$(( length + ${#price_formatted} ))
-small_prices="$color"$(echo -n "USD $price_formatted")
-for currency in $(echo $exchanges | jq -r ".${exchange_selected}.api | keys[]"); do
+length=0
+for currency in $(echo $exchanges | jq -r ".${exchange_selected}.api | to_entries[] | .key"); do
     if [[ "$currency" == "usd" ]]; then
         continue
     fi
@@ -302,6 +300,9 @@ for currency in $(echo $exchanges | jq -r ".${exchange_selected}.api | keys[]");
     length=$(( length + ${#price_formatted} ))
     small_prices+="${color}${price_formatted}"
 done
+small_prices+="\033[0m · "
+length=$(( length + 3 ))
+
 body+=$(echo -n "$(printf '%*s' $(( (64 - $length) / 2 )) '')")"$small_prices"
 
 ls_title=("5m" "15m" "1h" "2h" "4h" "8h" "12h" "1d")
