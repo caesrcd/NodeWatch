@@ -52,7 +52,7 @@ fi
 [[ $lines -ge 46 ]] && line3=$(( $lines - 42 )) || line3=$(( $lines - 28 ))
 
 TMUX_CMD="tmux new-session -s nodewatch \
-    \"watch -c -n 30 -t $SCRIPT_DIR/price_alarm/start.sh\" \; \
+    \"sleep 0.1;watch -c -n 30 -t $SCRIPT_DIR/price_alarm/start.sh\" \; \
     set-option status off \; bind-key -n z detach-client \; bind-key -n q kill-session \; \
     resize-window -x $cols -y $lines \; \
     split-window -v -l $line2 \"watch -c -n 30 -t bitcoin-cli -rpcwait -getinfo -color=always\" \; \

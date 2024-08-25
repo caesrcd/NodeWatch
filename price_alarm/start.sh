@@ -196,7 +196,7 @@ fi
 body+="\033[1;${color:5}$(figlet -f $font -w $COLS -c -m-0 "$price_formatted")\033[0m\n"
 
 # Current others price with small letters
-length=4
+length=3
 for currency in $(echo $exchanges | jq -r ".${exchange_selected}.api | to_entries[] | .key"); do
     if [[ "$currency" == "$curdef" ]]; then
         continue
