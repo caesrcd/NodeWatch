@@ -20,11 +20,19 @@ if [[ -f "$SCRIPT_DIR/prices.json" ]]; then
     fi
 fi
 
-last_alarm=(0 0 0 0 0 0)
+last_alarm='{}'
 if [[ -f "$SCRIPT_DIR/last_alarm.json" ]]; then
     if jq -e . "$SCRIPT_DIR/last_alarm.json" >/dev/null 2>&1; then
-        last_alarm=($(cat "$SCRIPT_DIR/last_alarm.json" | jq -r '.[]'))
+        last_alarm=$(cat "$SCRIPT_DIR/last_alarm.json")
     fi
+fi
+
+if [[ -f "$SCRIPT_DIR/alarms.json" ]]; then
+    if ! jq -e . "$SCRIPT_DIR/alarms.json" >/dev/null 2>&1; then
+        echo "Failed to parse JSON in file 'alarms.json'."
+        exit 1
+    fi
+    alarms=$(cat "$SCRIPT_DIR/alarms.json")
 fi
 
 time_now=$(date +%s)
@@ -125,138 +133,33 @@ ls_vartime() {
 # Checks price variations and sounds the alarm according to conditions.
 check_alarm() {
     price_now=$(get_price $curdef 0sec)
-    price_ago=( $(get_price $curdef 5min) $(get_price $curdef 15min) $(get_price $curdef 30min)
-                $(get_price $curdef 1hour) $(get_price $curdef 2hour) $(get_price $curdef 4hour)
-                $(get_price $curdef 8hour) $(get_price $curdef 12hour) $(get_price $curdef 1day) )
 
-    index_actived=""
-    if (( $time_now - ${last_alarm[0]} >= 36000 )) && {
-            ([[ -n "${price_ago[8]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[8]} - 1 > 0.13" | bc -l) ))) ||
-            ([[ -n "${price_ago[7]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[7]} - 1 > 0.086" | bc -l) ))) ||
-            ([[ -n "${price_ago[6]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[6]} - 1 > 0.07" | bc -l) )))
-        }; then
-        index_actived=0
-        play -q "$SCRIPT_DIR/alarms/win-high-long.mp3" &
-    elif (( $time_now - ${last_alarm[0]} >= 36000 )) && {
-            ([[ -n "${price_ago[8]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[8]} - 1 < -0.13" | bc -l) ))) ||
-            ([[ -n "${price_ago[7]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[7]} - 1 < -0.086" | bc -l) ))) ||
-            ([[ -n "${price_ago[6]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[6]} - 1 < -0.07" | bc -l) )))
-        }; then
-        index_actived=0
-        play -q "$SCRIPT_DIR/alarms/loss-high-long.mp3" &
-    elif (( $time_now - ${last_alarm[1]} >= 36000 )) && {
-            ([[ -n "${price_ago[8]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[8]} - 1 > 0.065" | bc -l) ))) ||
-            ([[ -n "${price_ago[7]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[7]} - 1 > 0.043" | bc -l) ))) ||
-            ([[ -n "${price_ago[6]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[6]} - 1 > 0.035" | bc -l) )))
-        }; then
-        index_actived=1
-        play -q "$SCRIPT_DIR/alarms/win-small-long.mp3" &
-    elif (( $time_now - ${last_alarm[1]} >= 36000 )) && {
-            ([[ -n "${price_ago[8]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[8]} - 1 < -0.065" | bc -l) ))) ||
-            ([[ -n "${price_ago[7]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[7]} - 1 < -0.043" | bc -l) ))) ||
-            ([[ -n "${price_ago[6]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[6]} - 1 < -0.035" | bc -l) )))
-        }; then
-        index_actived=1
-        play -q "$SCRIPT_DIR/alarms/loss-small-long.wav" &
-    elif (( $time_now - ${last_alarm[2]} >= 7200 )) && {
-            ([[ -n "${price_ago[5]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[5]} - 1 > 0.05" | bc -l) ))) ||
-            ([[ -n "${price_ago[4]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[4]} - 1 > 0.04" | bc -l) ))) ||
-            ([[ -n "${price_ago[3]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[3]} - 1 > 0.03" | bc -l) )))
-        }; then
-        index_actived=2
-        play -q "$SCRIPT_DIR/alarms/win-high-long.mp3" &
-    elif (( $time_now - ${last_alarm[2]} >= 7200 )) && {
-            ([[ -n "${price_ago[5]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[5]} - 1 < -0.05" | bc -l) ))) ||
-            ([[ -n "${price_ago[4]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[4]} - 1 < -0.04" | bc -l) ))) ||
-            ([[ -n "${price_ago[3]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[3]} - 1 < -0.03" | bc -l) )))
-        }; then
-        index_actived=2
-        play -q "$SCRIPT_DIR/alarms/loss-high-long.mp3" &
-    elif (( $time_now - ${last_alarm[3]} >= 7200 )) && {
-            ([[ -n "${price_ago[5]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[5]} - 1 > 0.03" | bc -l) ))) ||
-            ([[ -n "${price_ago[4]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[4]} - 1 > 0.025" | bc -l) ))) ||
-            ([[ -n "${price_ago[3]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[3]} - 1 > 0.02" | bc -l) )))
-        }; then
-        index_actived=3
-        play -q "$SCRIPT_DIR/alarms/win-small-long.mp3" &
-    elif (( $time_now - ${last_alarm[3]} >= 7200 )) && {
-            ([[ -n "${price_ago[5]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[5]} - 1 < -0.03" | bc -l) ))) ||
-            ([[ -n "${price_ago[4]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[4]} - 1 < -0.025" | bc -l) ))) ||
-            ([[ -n "${price_ago[3]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[3]} - 1 < -0.02" | bc -l) )))
-        }; then
-        index_actived=3
-        play -q "$SCRIPT_DIR/alarms/loss-small-long.wav" &
-    elif (( $time_now - ${last_alarm[4]} >= 600 )) && {
-            ([[ -n "${price_ago[2]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[2]} - 1 > 0.036" | bc -l) ))) ||
-            ([[ -n "${price_ago[1]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[1]} - 1 > 0.024" | bc -l) ))) ||
-            ([[ -n "${price_ago[0]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[0]} - 1 > 0.012" | bc -l) )))
-        }; then
-        index_actived=4
-        play -q "$SCRIPT_DIR/alarms/win-high-short.mp3" &
-    elif (( $time_now - ${last_alarm[4]} >= 600 )) && {
-            ([[ -n "${price_ago[2]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[2]} - 1 < -0.036" | bc -l) ))) ||
-            ([[ -n "${price_ago[1]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[1]} - 1 < -0.024" | bc -l) ))) ||
-            ([[ -n "${price_ago[0]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[0]} - 1 < -0.012" | bc -l) )))
-        }; then
-        index_actived=4
-        play -q "$SCRIPT_DIR/alarms/loss-high-short.mp3" &
-    elif (( $time_now - ${last_alarm[5]} >= 900 )) && {
-            ([[ -n "${price_ago[2]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[2]} - 1 > 0.018" | bc -l) ))) ||
-            ([[ -n "${price_ago[1]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[1]} - 1 > 0.012" | bc -l) ))) ||
-            ([[ -n "${price_ago[0]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[0]} - 1 > 0.006" | bc -l) )))
-        }; then
-        index_actived=5
-        play -q "$SCRIPT_DIR/alarms/win-small-short.mp3" &
-    elif (( $time_now - ${last_alarm[5]} >= 900 )) && {
-            ([[ -n "${price_ago[2]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[2]} - 1 < -0.018" | bc -l) ))) ||
-            ([[ -n "${price_ago[1]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[1]} - 1 < -0.012" | bc -l) ))) ||
-            ([[ -n "${price_ago[0]}" ]] &&
-                (( $(echo "$price_now / ${price_ago[0]} - 1 < -0.006" | bc -l) )))
-        }; then
-        index_actived=5
-        play -q "$SCRIPT_DIR/alarms/loss-small-short.mp3" &
-    fi
+    while read alarm; do
+        condition=$(echo $alarm | jq -r '.condition')
+        read time_ago variation <<< $(echo $condition | awk '{print $1, $2 " " $3}')
+        if ! date -d "$time_ago ago" >/dev/null 2>&1; then
+            echo "Alarm condition '$key' is invalid."
+            exit 1
+        fi
 
-    if [[ -n "$index_actived" ]]; then
-        last_alarm[$index_actived]=$(date +%s)
-        json=$(printf '%s\n' "${last_alarm[@]}" | jq -cs .)
-        echo $json | jq -c . > "$SCRIPT_DIR/last_alarm.json"
-    fi
+        interval=$(echo $alarm | jq -r '.interval')
+        last=$(echo $last_alarm | jq -r ".\"$interval\"")
+        if (( $time_now - $last < $interval )); then
+            continue
+        fi
+
+        price_ago=$(get_price $curdef $time_ago)
+        if [[ -z "$price_ago" ]] ||
+            ! (( $(echo "$price_now / $price_ago - 1 $variation" | bc -l) )); then
+            continue
+        fi
+
+        sound=$(echo $alarm | jq -r '.sound')
+        play -q "$SCRIPT_DIR/alarms/$sound"
+        last_alarm=$(echo $last_alarm | jq ".[\"$interval\"] = $time_now")
+        echo $last_alarm | jq -c . > "$SCRIPT_DIR/last_alarm.json"
+        break
+    done < <(echo $alarms | jq -c '.[]')
 }
 
 exchange_selected=""
@@ -320,4 +223,6 @@ ls_ago=("5min" "15min" "1hour" "2hour" "4hour" "8hour" "12hour" "1day")
 body+="\n\n$(ls_vartime $ls_title $ls_ago)"
 
 echo -ne "$body"
-check_alarm
+if [[ -n "$alarms" ]]; then
+    check_alarm
+fi
