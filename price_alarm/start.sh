@@ -158,7 +158,7 @@ check_alarm() {
             continue
         fi
 
-        play -q "$SCRIPT_DIR/alarms/$sound"
+        nohup play -q "$SCRIPT_DIR/alarms/$sound" >/dev/null 2>&1 &
         last_alarm=$(echo $last_alarm | jq --arg i "$interval" --argjson t "$time_now" '.[$i] = $t')
         echo $last_alarm | jq -c . > "$SCRIPT_DIR/last_alarm.json"
         break
