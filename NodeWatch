@@ -46,7 +46,7 @@ if [[ $cols -lt 166 || $lines -lt 32 ]]; then
 fi
 
 [[ $cols -ge 210 ]] && netinfo_arg=3 || netinfo_arg=1
-[[ $cols -ge 210 ]] && iostat_arg="-x"
+[[ $cols -lt 200 ]] && iostat_arg="-s"
 
 [[ $lines -ge 46 ]] && line2=$(( $lines - 30 )) || line2=$(( $lines - 15 ))
 [[ $lines -ge 46 ]] && line3=$(( $lines - 42 )) || line3=$(( $lines - 28 ))
@@ -56,7 +56,7 @@ TMUX_CMD="tmux new-session -s nodewatch \
     set-option status off \; bind-key -n z detach-client \; bind-key -n q kill-session \; \
     resize-window -x $cols -y $lines \; \
     split-window -v -l $line2 \"watch -c -n 30 -t bitcoin-cli -rpcwait -getinfo -color=always\" \; \
-    split-window -v -l $line3 \"iostat $iostat_arg -d --human -p $IOSTAT_DEVICE 2\" \; \
+    split-window -v -l $line3 \"iostat $iostat_arg -x -d --human -p $IOSTAT_DEVICE 2\" \; \
     split-window -t 0 -h -l $(( $cols - 86 )) \"watch -n 30 -t bitcoin-cli -rpcwait -netinfo $netinfo_arg\" \; "
 
 [[ $lines -ge 46 ]] && TMUX_CMD+="split-window -t 0 -v -l 14 \"$SCRIPT_DIR/htop/start.sh\" \; send-keys Escape \; "

@@ -2,7 +2,7 @@
 
 SCRIPT_PATH=$(readlink -f "$0")
 SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
-COLS=$(tput cols)
+tcols=$(tput cols)
 
 if ! [[ -f "$SCRIPT_DIR/exchanges.json" ]]; then
     echo "File 'exchanges.json' not found."
@@ -20,7 +20,7 @@ if [[ -f "$SCRIPT_DIR/prices.json" ]]; then
     fi
 fi
 
-last_alarm='{}'
+last_alarm="{}"
 if [[ -f "$SCRIPT_DIR/last_alarm.json" ]]; then
     if jq -e . "$SCRIPT_DIR/last_alarm.json" >/dev/null 2>&1; then
         last_alarm=$(cat "$SCRIPT_DIR/last_alarm.json")
@@ -50,10 +50,10 @@ get_price() {
 # Updates the list of prices obtained from one of the exchange APIs.
 update_price() {
     re='^[0-9]+([.][0-9]+)?$'
-    json_data="[{\"timestamp\":$(date +%s)"
-    for currency in $(echo $exchanges | jq -r ".${1}.api | keys[]"); do
-        jq_price=$(echo $exchanges | jq -r ".${1}.jq_price")
-        api_url=$(echo $exchanges | jq -r ".${1}.api.${currency}")
+    json_data='[{"timestamp":'$(date +%s)
+    for currency in $(echo $exchanges | jq -r ".$1.api | keys[]"); do
+        jq_price=$(echo $exchanges | jq -r ".$1.jq_price")
+        api_url=$(echo $exchanges | jq -r ".$1.api.$currency")
         json=$(curl -s $api_url)
         price=$(echo $json | jq -r "$jq_price")
         if [[ "$price" == "null" ]]; then
@@ -70,7 +70,7 @@ update_price() {
     prices=$(echo $prices | jq ". += $json_data")
 
     # Filters the JSON and keeps only records with timestamps from the last 24 hours
-    old_time=$(date -d "1 day ago 1 minute ago" +%s)
+    old_time=$(date -d "1day ago 1min ago" +%s)
     prices=$(echo $prices | jq --argjson cutoff "$old_time" '[.[] | select(.timestamp >= $cutoff)]')
 
     if ! jq -e . >/dev/null 2>&1 <<< "$prices"; then
@@ -107,12 +107,12 @@ ls_vartime() {
         if [[ -n "$price_ago" ]]; then
             title="$(printf '%*s' $(( (8 - ${#ls_title[$index]}) / 2 )) '')${ls_title[$index]}"
             title+="$(printf '%*s' $(( 8 - ${#title} )) '')"
-            if (( ${#line_title} + ${#title} > $COLS )); then
+            if (( ${#line_title} + ${#title} > $tcols )); then
                 break;
             fi
             per_num=$(echo "scale=4; (($price_now / $price_ago - 1) * 100)" | bc)
             color=$(variation_color $per_num 0)
-            per_num=$(awk "BEGIN {printf \"%+.2f\", $per_num}")"%"
+            per_num=$(awk -v per="$per_num" 'BEGIN {printf "%+.2f", per}')"%"
             line_title+="$title"
             per_num="$(printf '%*s' $(( (8 - ${#per_num}) / 2 )) '')$per_num"
             per_num+="$(printf '%*s' $(( 8 - ${#per_num} )) '')"
@@ -123,9 +123,9 @@ ls_vartime() {
     if [[ -z "$line_title" ]]; then
         line_title="Loading..."
     fi
-    text="$(printf '%*s' $(( ( $COLS - ${#line_title} ) / 2 )) '')\033[37m${line_title}\033[0m\n"
+    text="$(printf '%*s' $(( ( $tcols - ${#line_title} ) / 2 )) '')\033[37m${line_title}\033[0m\n"
     if [[ "${#line_per}" -gt 0 ]]; then
-        text+="$(printf '%*s' $(( ( $COLS - ${#line_title} ) / 2 )) '')\033[37m${line_per}\033[0m"
+        text+="$(printf '%*s' $(( ( $tcols - ${#line_title} ) / 2 )) '')\033[37m${line_per}\033[0m"
     fi
     echo "$text"
 }
@@ -133,17 +133,16 @@ ls_vartime() {
 # Checks price variations and sounds the alarm according to conditions.
 check_alarm() {
     price_now=$(get_price $curdef 0sec)
-
     while read alarm; do
-        condition=$(echo $alarm | jq -r '.condition')
+        condition=$(echo $alarm | jq -r ".condition")
         read time_ago variation <<< $(echo $condition | awk '{print $1, $2 " " $3}')
         if ! date -d "$time_ago ago" >/dev/null 2>&1; then
-            echo "Alarm condition '$key' is invalid."
+            echo "Alarm condition '$condition' is invalid."
             exit 1
         fi
 
-        interval=$(echo $alarm | jq -r '.interval')
-        last=$(echo $last_alarm | jq -r ".\"$interval\"")
+        interval=$(echo $alarm | jq -r ".interval")
+        last=$(echo $last_alarm | jq -r --arg i "$interval" '.[$i]')
         if (( $time_now - $last < $interval )); then
             continue
         fi
@@ -154,12 +153,12 @@ check_alarm() {
             continue
         fi
 
-        sound=$(echo $alarm | jq -r '.sound')
+        sound=$(echo $alarm | jq -r ".sound")
         play -q "$SCRIPT_DIR/alarms/$sound"
-        last_alarm=$(echo $last_alarm | jq ".[\"$interval\"] = $time_now")
+        last_alarm=$(echo $last_alarm | jq --arg i "$interval" --argjson t "$time_ago" '.[$i] = $t')
         echo $last_alarm | jq -c . > "$SCRIPT_DIR/last_alarm.json"
         break
-    done < <(echo $alarms | jq -c '.[]')
+    done < <(echo $alarms | jq -c ".[]")
 }
 
 exchange_selected=""
@@ -176,7 +175,7 @@ if [[ -z "$exchange_selected" ]]; then
 fi
 curdef=$(echo $exchanges | jq -r ".${exchange_selected}.api | to_entries | first(.[]).key")
 
-body="$(printf '%*s' $(( ( $COLS - 13 ) / 2 )) '')"
+body="$(printf '%*s' $(( ( $tcols - 13 ) / 2 )) '')"
 body+="Bitcoin Price\n\n"
 
 # Sets the color of the current dollar price compared to the price 30 seconds ago
@@ -184,16 +183,16 @@ price_now=$(get_price $curdef 0sec)
 price_ago=$(get_price $curdef 30sec)
 color=$(variation_color $price_now $price_ago)
 
-price_formatted=$(awk "BEGIN {printf \"%'\047.2f\", $price_now}")
+price_formatted=$(awk -v p="$price_now" 'BEGIN {printf "%\047.2f", p}')
 
 # Current dollar price with capital letters
-if [[ $COLS -gt 60 ]]; then font="big"
-elif [[ $COLS -gt 50 ]]; then font="small"
-elif [[ $COLS -gt 40 ]]; then font="script"
+if [[ $tcols -gt 60 ]]; then font="big"
+elif [[ $tcols -gt 50 ]]; then font="small"
+elif [[ $tcols -gt 40 ]]; then font="script"
 else font="mini"
 fi
 
-body+="\033[1;${color:5}$(figlet -f $font -w $COLS -c -m-0 "$price_formatted")\033[0m\n"
+body+="\033[1;${color:5}$(figlet -f $font -w $tcols -c -m-0 "$price_formatted")\033[0m\n"
 
 # Current others price with small letters
 length=3
@@ -210,13 +209,13 @@ for currency in $(echo $exchanges | jq -r ".${exchange_selected}.api | to_entrie
     color=$(variation_color $price_now $price_ago)
 
     # Current price with small letters
-    price_formatted="${currency^^} "$(awk "BEGIN {printf \"%'\047.2f\", $price_now}")
+    price_formatted="${currency^^} "$(awk -v p="$price_now" 'BEGIN {printf "%\047.2f", p}')
     length=$(( length + ${#price_formatted} ))
     small_prices+="${color}${price_formatted}"
 done
 small_prices+="\033[0m · "
 
-body+=$(echo -n "$(printf '%*s' $(( ($COLS - $length) / 2 )) '')")"$small_prices"
+body+=$(echo -n "$(printf '%*s' $(( ($tcols - $length) / 2 )) '')")"$small_prices"
 
 ls_title=("5m" "15m" "1h" "2h" "4h" "8h" "12h" "1d")
 ls_ago=("5min" "15min" "1hour" "2hour" "4hour" "8hour" "12hour" "1day")
