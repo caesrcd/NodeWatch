@@ -155,7 +155,7 @@ check_alarm() {
 
         sound=$(echo $alarm | jq -r ".sound")
         play -q "$SCRIPT_DIR/alarms/$sound"
-        last_alarm=$(echo $last_alarm | jq --arg i "$interval" --argjson t "$time_ago" '.[$i] = $t')
+        last_alarm=$(echo $last_alarm | jq --arg i "$interval" --argjson t "$time_now" '.[$i] = $t')
         echo $last_alarm | jq -c . > "$SCRIPT_DIR/last_alarm.json"
         break
     done < <(echo $alarms | jq -c ".[]")
