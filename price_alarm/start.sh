@@ -50,7 +50,7 @@ get_price() {
 # Updates the list of prices obtained from one of the exchange APIs.
 update_price() {
     re='^[0-9]+([.][0-9]+)?$'
-    json_data='[{"timestamp":'$(date +%s)
+    json_data='[{"timestamp":'$time_now
     for currency in $(echo $exchanges | jq -r ".$1.api | keys[]"); do
         jq_price=$(echo $exchanges | jq -r ".$1.jq_price")
         api_url=$(echo $exchanges | jq -r ".$1.api.$currency")
@@ -101,7 +101,7 @@ ls_vartime() {
     ls_ago=$2
     line_title=""
     line_per=""
-    price_now=$(get_price $curdef 0sec)
+    price_now=$(get_price $curdef)
     for index in "${!ls_title[@]}"; do
         price_ago="$(get_price $curdef ${ls_ago[$index]})"
         if [[ -n "$price_ago" ]]; then
@@ -132,7 +132,7 @@ ls_vartime() {
 
 # Checks price variations and sounds the alarm according to conditions.
 check_alarm() {
-    price_now=$(get_price $curdef 0sec)
+    price_now=$(get_price $curdef)
     while read alarm; do
         condition=$(echo $alarm | jq -r ".condition")
         read time_ago variation <<< $(echo $condition | awk '{print $1, $2 " " $3}')
@@ -179,7 +179,7 @@ body="$(printf '%*s' $(( ( $tcols - 13 ) / 2 )) '')"
 body+="Bitcoin Price\n\n"
 
 # Sets the color of the current dollar price compared to the price 30 seconds ago
-price_now=$(get_price $curdef 0sec)
+price_now=$(get_price $curdef)
 price_ago=$(get_price $curdef 30sec)
 color=$(variation_color $price_now $price_ago)
 
@@ -204,7 +204,7 @@ for currency in $(echo $exchanges | jq -r ".${exchange_selected}.api | to_entrie
     length=$(( length + 3 ))
 
     # Sets the color of the current price compared to the price 30 seconds ago
-    price_now=$(get_price ${currency} 0sec)
+    price_now=$(get_price ${currency})
     price_ago=$(get_price ${currency} 30sec)
     color=$(variation_color $price_now $price_ago)
 
