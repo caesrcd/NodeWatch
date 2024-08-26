@@ -118,7 +118,7 @@ ls_vartime() {
     done
 
     if [[ -z "$line_title" ]]; then
-        line_title="Loading..."
+        line_title="(Wait a few minutes)"
     fi
     text="$(printf '%*s' $(( ( $tcols - ${#line_title} ) / 2 )) '')\033[37m${line_title}\033[0m\n"
     if [[ "${#line_per}" -gt 0 ]]; then
