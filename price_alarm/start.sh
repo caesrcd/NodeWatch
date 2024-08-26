@@ -56,10 +56,7 @@ update_price() {
         api_url=$(echo $exchanges | jq -r ".$1.api.$currency")
         json=$(curl -s $api_url)
         price=$(echo $json | jq -r "$jq_price")
-        if [[ "$price" == "null" ]]; then
-            return 1
-        elif ! [[ $price =~ $re ]]; then
-            echo "Price isn't a number: $price"
+        if ! [[ "$price" =~ $re ]]; then
             return 1
         fi
         price=$(LC_NUMERIC=C printf "%.2f" $price)
@@ -132,12 +129,20 @@ ls_vartime() {
 
 # Checks price variations and sounds the alarm according to conditions.
 check_alarm() {
+    re='^[<>]=?\ -?[0-9]+(\.[0-9]+)?$'
     price_now=$(get_price $curdef)
     while read alarm; do
         condition=$(echo $alarm | jq -r ".condition")
         read time_ago variation <<< $(echo $condition | awk '{print $1, $2 " " $3}')
-        if ! date -d "$time_ago ago" >/dev/null 2>&1; then
+        if ! date -d "$time_ago ago" >/dev/null 2>&1 ||
+            ! [[ "$variation" =~ $re ]]; then
             echo "Alarm condition '$condition' is invalid."
+            exit 1
+        fi
+
+        sound=$(echo $alarm | jq -r ".sound")
+        if ! [[ -f "$SCRIPT_DIR/alarms/$sound" ]]; then
+            echo -e "Sound file not found:\n-PATH=$SCRIPT_DIR/alarms/$sound"
             exit 1
         fi
 
@@ -153,7 +158,6 @@ check_alarm() {
             continue
         fi
 
-        sound=$(echo $alarm | jq -r ".sound")
         play -q "$SCRIPT_DIR/alarms/$sound"
         last_alarm=$(echo $last_alarm | jq --arg i "$interval" --argjson t "$time_now" '.[$i] = $t')
         echo $last_alarm | jq -c . > "$SCRIPT_DIR/last_alarm.json"
@@ -170,7 +174,12 @@ for exchange in $(echo $exchanges | jq -r "to_entries[] | .key"); do
     fi
 done
 if [[ -z "$exchange_selected" ]]; then
-    echo "Exchange APIs are currently not working."
+    cat << EOF
+Currency values ​​were not found in exchange APIs.
+Possible causes:
+- APIs are not working
+- Your network is offline with the internet
+EOF
     exit 1
 fi
 curdef=$(echo $exchanges | jq -r ".${exchange_selected}.api | to_entries | first(.[]).key")
@@ -221,7 +230,7 @@ ls_title=("5m" "15m" "1h" "2h" "4h" "8h" "12h" "1d")
 ls_ago=("5min" "15min" "1hour" "2hour" "4hour" "8hour" "12hour" "1day")
 body+="\n\n$(ls_vartime $ls_title $ls_ago)"
 
-echo -ne "$body"
 if [[ -n "$alarms" ]]; then
     check_alarm
 fi
+echo -ne "$body"
