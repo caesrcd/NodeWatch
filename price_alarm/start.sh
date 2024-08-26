@@ -2,7 +2,10 @@
 
 SCRIPT_PATH=$(readlink -f "$0")
 SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
+
 tcols=$(tput cols)
+time_now=$(date +%s)
+re_price='^[0-9]+([.][0-9]+)?$'
 
 if ! [[ -f "$SCRIPT_DIR/exchanges.json" ]]; then
     echo "File 'exchanges.json' not found."
@@ -35,8 +38,6 @@ if [[ -f "$SCRIPT_DIR/alarms.json" ]]; then
     alarms=$(cat "$SCRIPT_DIR/alarms.json")
 fi
 
-time_now=$(date +%s)
-
 # Gets the price according to the symbol parameter and defined time.
 get_price() {
     time_gap=$([ -n "$2" ] && date -d "$2 ago" +%s || echo $time_now)
@@ -44,19 +45,18 @@ get_price() {
     upper_bound=$((time_gap + 20))
     value=$(echo $prices | jq --argjson lower "$lower_bound" --argjson upper "$upper_bound" \
             '[.[] | select(.timestamp >= $lower and .timestamp <= $upper)]')
-    [[ "$value" != "[]" ]] && echo $value | jq -r ".[0].$1" || echo ""
+    [[ "$value" != "[]" ]] && echo $value | jq -r ".[0].$1"
 }
 
 # Updates the list of prices obtained from one of the exchange APIs.
 update_price() {
-    re='^[0-9]+([.][0-9]+)?$'
     json_data='[{"timestamp":'$time_now
     for currency in $(echo $exchanges | jq -r ".$1.api | keys[]"); do
         jq_price=$(echo $exchanges | jq -r ".$1.jq_price")
         api_url=$(echo $exchanges | jq -r ".$1.api.$currency")
         json=$(curl -s $api_url)
         price=$(echo $json | jq -r "$jq_price")
-        if ! [[ "$price" =~ $re ]]; then
+        if ! [[ "$price" =~ $re_price ]]; then
             return 1
         fi
         price=$(LC_NUMERIC=C printf "%.2f" $price)
@@ -101,7 +101,7 @@ ls_vartime() {
     price_now=$(get_price $curdef)
     for index in "${!ls_title[@]}"; do
         price_ago="$(get_price $curdef ${ls_ago[$index]})"
-        if [[ -n "$price_ago" ]]; then
+        if [[ "$price_ago" =~ $re_price ]]; then
             title="$(printf '%*s' $(( (8 - ${#ls_title[$index]}) / 2 )) '')${ls_title[$index]}"
             title+="$(printf '%*s' $(( 8 - ${#title} )) '')"
             if (( ${#line_title} + ${#title} > $tcols )); then
@@ -153,7 +153,7 @@ check_alarm() {
         fi
 
         price_ago=$(get_price $curdef $time_ago)
-        if [[ -z "$price_ago" ]] ||
+        if ! [[ "$price_ago" =~ $re_price ]] ||
             ! (( $(echo "$price_now / $price_ago - 1 $variation" | bc -l) )); then
             continue
         fi
