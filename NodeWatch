@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-cmd_list=("bitcoin-cli" "tmux" "htop" "iostat" "multitail" "watch" "figlet" "play" "jq" "bc" "xargs" "pgrep" "tput")
+cmd_list=("bitcoin-cli" "tmux" "htop" "iostat" "multitail" "figlet" "play" "jq" "bc")
 for cmd in "${cmd_list[@]}"; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         echo "Install the command package0 '$cmd'."
