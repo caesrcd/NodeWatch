@@ -1,8 +1,8 @@
 # NodeWatch
 
-![NodeWatch Screenshot](https://github.com/casilva-dev/NodeWatch/blob/master/screenshot.png)
+![NodeWatch Screenshot](https://github.com/caesrcd/NodeWatch/blob/master/screenshot.png)
 
-NodeWatch is a CLI dashboard for monitoring your Bitcoin fullnode, providing essential information about the status of the node, network, and peers.
+NodeWatch is a CLI dashboard for monitoring your Bitcoin fullnode, providing essential information such as node status, transaction fee estimate, bitcoin price, and more.
 
 ## Features
 
@@ -17,19 +17,22 @@ These features provide comprehensive insight and control over your Bitcoin fulln
 
 ## Installation and Usage
 
-1. Clone the repository:
+1. For full operation, the list of dependent packages follows:
 
-   ```bash
-   git clone https://github.com/casilva-dev/NodeWatch.git
-   cd NodeWatch
-   ```
+   - BitcoinCore ([website](https://bitcoin.org/en/download))
+   - tmux ([github](https://github.com/tmux/tmux/wiki))
+   - sysstat ([website](https://sysstat.github.io/))
+   - MultiTail ([website](https://vanheusden.com/multitail/))
+   - FIGlet ([website](http://www.figlet.org/))
+   - SoX ([sourceforge](https://sourceforge.net/projects/sox/))
+   - jq ([website](https://jqlang.github.io/jq/))
+   - bc ([website](https://www.gnu.org/software/bc/))
 
 2. Configure the config.env file to connect to your fullnode.
 
-3. Make the script executable and run it:
+3. After configuring, run the command below:
 
    ```bash
-   chmod +x NodeWatch
    ./NodeWatch
    ```
 
@@ -43,7 +46,7 @@ These features provide comprehensive insight and control over your Bitcoin fulln
 Edit the config.env file to adjust the settings according to your environment. Example content:
 
 ```bash
-SIZE_SCREEN=200x47
+SIZE_SCREEN=220x47
 BITCOIN_DATADIR=/mnt/bitcoin
 IOSTAT_DEVICE=/dev/disk/by-uuid/fa4b95ba-5878-4830-98ed-4a28f39fad2b
 IOSTAT_DEVICE=/dev/disk/by-uuid/3f102c82-3118-4867-8aa9-6d30a167a4c4
