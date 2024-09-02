@@ -1,4 +1,12 @@
 {
+    "coindesk": {
+        "api": {
+            "usd": "https://api.coindesk.com/v1/bpi/currentprice/USD.json",
+            "eur": "https://api.coindesk.com/v1/bpi/currentprice/EUR.json",
+            "brl": "https://api.coindesk.com/v1/bpi/currentprice/BRL.json"
+        },
+        "jq_price": ".bpi | last(.[]).rate_float"
+    },
     "coinbase": {
         "api": {
             "usd": "https://api.coinbase.com/v2/prices/BTC-USD/spot",
@@ -6,6 +14,14 @@
             "brl": "https://api.coinbase.com/v2/prices/BTC-BRL/spot"
         },
         "jq_price": ".data.amount"
+    },
+    "coingecko": {
+        "api": {
+            "usd": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
+            "eur": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur",
+            "brl": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl"
+        },
+        "jq_price": ".bitcoin.[]"
     },
     "binance": {
         "api": {
