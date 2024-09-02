@@ -55,7 +55,7 @@ update_price() {
         jq_price=$(echo $exchanges | jq -r ".$1.jq_price")
         api_url=$(echo $exchanges | jq -r ".$1.api.$currency")
         json=$(curl -s $api_url)
-        price=$(echo $json | jq -r "$jq_price")
+        price=$(echo $json | jq -r "$jq_price?")
         if ! [[ "$price" =~ $re_price ]]; then
             return 1
         fi
