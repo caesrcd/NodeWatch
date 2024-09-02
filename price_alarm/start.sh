@@ -184,8 +184,8 @@ EOF
 fi
 curdef=$(echo $exchanges | jq -r ".${exchange_selected}.api | to_entries | first(.[]).key")
 
-body="$(printf '%*s' $(( ( $tcols - 13 ) / 2 )) '')"
-body+="Bitcoin Price\n\n"
+body="$(printf '%*s' $(( ( $tcols - 16 - ${#exchange_selected} ) / 2 )) '')"
+body+="Bitcoin Price - ${exchange_selected^}\n\n"
 
 # Sets the color of the current dollar price compared to the price 30 seconds ago
 price_now=$(get_price $curdef)
