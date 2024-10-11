@@ -200,13 +200,20 @@ color=$(variation_color $price_now $price_ago)
 price_formatted=$(awk -v p="$price_now" 'BEGIN {printf "%\047.2f", p}')
 
 # Current dollar price with capital letters
-if [[ $tcols -gt 60 ]]; then font="big"
-elif [[ $tcols -gt 50 ]]; then font="small"
-elif [[ $tcols -gt 40 ]]; then font="script"
-else font="mini"
+fonts=("big" "small" "mini" "mini" "mini")
+if [[ $tcols -gt 55 ]]; then font=0
+elif [[ $tcols -gt 50 ]]; then font=1
+elif [[ $tcols -gt 45 ]]; then font=2
+else font=3
 fi
 
-body+="\033[1;${color:5}$(figlet -f $font -w $tcols -c -m-0 "$price_formatted")\033[0m\n"
+if (( $(echo "$price_now >= 100000000" | bc -l) )); then font=$(( font + 2 ))
+elif (( $(echo "$price_now >= 100000" | bc -l) )); then font=$(( font + 1 ))
+fi
+
+if [ $font -eq 2 ]; then body+="\n"; fi
+body+="\033[1;${color:5}$(figlet -f ${fonts[$font]} -w $tcols -c -m-0 "$price_formatted")\033[0m\n"
+if [ $font -ge 1 ]; then body+="\n\n"; fi
 
 # Current others price with small letters
 length=3
@@ -230,6 +237,7 @@ done
 small_prices+="\033[0m · "
 
 body+=$(echo -n "$(printf '%*s' $(( ($tcols - $length) / 2 )) '')")"$small_prices"
+if [ $font -ge 1 ]; then body+="\n"; fi
 
 ls_title=("5m" "15m" "1h" "2h" "4h" "8h" "12h" "1d")
 ls_ago=("5min" "15min" "1hour" "2hour" "4hour" "8hour" "12hour" "1day")
