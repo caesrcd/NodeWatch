@@ -36,34 +36,36 @@ if [ -n "$SIZE_SCREEN" ]; then
     cols=$(echo "$SIZE_SCREEN" | awk -F 'x' '{print $1}')
     lines=$(echo "$SIZE_SCREEN" | awk -F 'x' '{print $2}')
 else
-    [ -z "$DISPLAY" ] && cols=$(tput cols) || cols=210
-    [ -z "$DISPLAY" ] && lines=$(( $(tput lines) + $n_devices )) || lines=$(( 45 + $n_devices ))
+    cols=$(tput cols)
+    lines=$(( $(tput lines) + $n_devices ))
 fi
 
-if [[ $cols -lt 166 || $lines -lt 32 ]]; then
-    echo "Requires the terminal screen to have at least 166 columns and 32 rows."
+if [ $cols -lt 150 -o $lines -lt 27 ]; then
+    echo "Resize the terminal screen. Requires a minimum of 150 columns and 27 rows."
     exit 1
 fi
 
-[[ $cols -ge 210 ]] && netinfo_arg=3 || netinfo_arg=1
-[[ $cols -lt 200 ]] && iostat_arg="-s"
-
-[[ $lines -ge 46 ]] && line2=$(( $lines - 30 )) || line2=$(( $lines - 15 ))
-[[ $lines -ge 46 ]] && line3=$(( $lines - 42 )) || line3=$(( $lines - 28 ))
+netinfo_arg=3
+if [ $lines -lt 30 -o $cols -lt 160 ]; then
+    netinfo_arg=0
+elif [ $cols -lt 185 ]; then
+    netinfo_arg=1
+fi
 
 TMUX_CMD="tmux new-session -s nodewatch \
-    \"sleep 0.1;watch -c -n 30 -t $SCRIPT_DIR/price_alarm/start.sh\" \; \
+    \"watch -c -n 30 -t bitcoin-cli -rpcwait -getinfo -color=always\" \; \
     set-option status off \; bind-key -n z detach-client \; bind-key -n q kill-session \; \
     resize-window -x $cols -y $lines \; \
-    split-window -v -l $line2 \"watch -c -n 30 -t bitcoin-cli -rpcwait -getinfo -color=always\" \; \
-    split-window -v -l $line3 \"iostat $iostat_arg -x -d --human -p $IOSTAT_DEVICE 2\" \; \
-    split-window -t 0 -h -l $(( $cols - 86 )) \"watch -n 30 -t bitcoin-cli -rpcwait -netinfo $netinfo_arg\" \; "
+    split-window -v -l $(( $lines - 13 )) \"sleep 0.5;watch -c -n 30 -t $SCRIPT_DIR/price_alarm/start.sh\" \; \
+    split-window -t 0 -h -l $(( $cols - 45 )) \"multitail --config $SCRIPT_DIR/multitail/config -D -cS bitcoin $BITCOIN_DATADIR/debug.log\" \; \
+    send-keys C-m \; \
+    split-window -t 2 -h -l $(( $cols - 78 )) \"watch -n 30 -t bitcoin-cli -rpcwait -netinfo $netinfo_arg\" \; "
 
-[[ $lines -ge 46 ]] && TMUX_CMD+="split-window -t 0 -v -l 14 \"$SCRIPT_DIR/htop/start.sh\" \; send-keys Escape \; "
+[ $lines -ge 42 ] && TMUX_CMD+="split-window -t 2 -v -l $(( $lines - 28 )) \"$SCRIPT_DIR/htop/start.sh\" \; send-keys Escape \; "
+[ $lines -ge 31 -a $lines -le 41 ] && iostat_target=2
+[ $lines -ge $(( 44 + $n_devices + 1 )) ] && iostat_target=3
+[ -n "$iostat_target" ] && TMUX_CMD+="split-window -t $iostat_target -v -l $(( $n_devices + 3 )) \"iostat -d -x -s -k --human -p $IOSTAT_DEVICE 2\" \; "
 
-TMUX_CMD+="split-window -t 0 -h -l 20 \"watch -n 60 -t -c 'bash -c $SCRIPT_DIR/estimate_fee/start.sh'\" \; \
-    split-window -t $([[ $lines -ge 46 ]] && echo 4 || echo 3) -h -l $(( $cols - 38 )) \
-    \"multitail --config $SCRIPT_DIR/multitail/config -D -cS bitcoin $BITCOIN_DATADIR/debug.log\" \; \
-    send-keys C-m"
+TMUX_CMD+="split-window -t 2 -h -l 20 \"watch -n 60 -t -c 'bash -c $SCRIPT_DIR/estimate_fee/start.sh'\" "
 
 eval $TMUX_CMD
