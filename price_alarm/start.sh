@@ -130,7 +130,6 @@ ls_vartime() {
 # Checks price variations and sounds the alarm according to conditions.
 check_alarm() {
     re='^[<>]=?\ -?[0-9]+(\.[0-9]+)?$'
-    price_now=$(get_price $curdef)
     while read alarm; do
         condition=$(echo $alarm | jq -r ".condition")
         read time_ago variation <<< $(echo $condition | awk '{print $1, $2 " " $3}')
@@ -152,7 +151,13 @@ check_alarm() {
             continue
         fi
 
-        price_ago=$(get_price $curdef $time_ago)
+        currency=$(echo $alarm | jq -r ".currency")
+        if [[ -z "$currency" ]];then
+            $currency=$curdef
+        fi
+
+        price_now=$(get_price $currency)
+        price_ago=$(get_price $currency $time_ago)
         if ! [[ "$price_ago" =~ $re_price ]] ||
             ! (( $(echo "$price_now / $price_ago - 1 $variation" | bc -l) )); then
             continue
