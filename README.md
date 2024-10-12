@@ -15,28 +15,17 @@ NodeWatch is a CLI dashboard for monitoring your Bitcoin fullnode, providing ess
 
 These features provide comprehensive insight and control over your Bitcoin fullnode, improving the efficiency and monitoring of your cryptocurrency infrastructure.
 
-## Installation and Usage
+## Usage
 
-1. For full operation, the list of dependent packages follows:
+1. Configure the config.env file to connect to your fullnode.
 
-   - BitcoinCore ([website](https://bitcoin.org/en/download))
-   - tmux ([github](https://github.com/tmux/tmux/wiki))
-   - sysstat ([website](https://sysstat.github.io/))
-   - MultiTail ([website](https://vanheusden.com/multitail/))
-   - FIGlet ([website](http://www.figlet.org/))
-   - SoX ([sourceforge](https://sourceforge.net/projects/sox/))
-   - jq ([website](https://jqlang.github.io/jq/))
-   - bc ([website](https://www.gnu.org/software/bc/))
-
-2. Configure the config.env file to connect to your fullnode.
-
-3. After configuring, run the command below:
+2. After configuring, run the command below:
 
    ```bash
    ./NodeWatch
    ```
 
-4. Use the following shortcuts to control the session:
+3. Use the following shortcuts to control the session:
 
    - Press `q` to end the session.
    - Press `z` to detach the session.
