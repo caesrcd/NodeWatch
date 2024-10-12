@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
 
-cmd_list=("bitcoin-cli" "tmux" "htop" "iostat" "multitail" "figlet" "play" "jq" "bc")
-for cmd in "${cmd_list[@]}"; do
-    if ! command -v "$cmd" >/dev/null 2>&1; then
-        echo "Install the command package0 '$cmd'."
-        exit 1
-    fi
-done
+./check_install
+[ "$?" -ne 1 ] || exit 1
 
 if tmux has-session -t nodewatch 2>/dev/null; then
     tmux -2 attach-session -t nodewatch
