@@ -66,6 +66,7 @@ TMUX_CMD="tmux new-session -s nodewatch \
 [ $lines -ge $(( 44 + $n_devices + 1 )) ] && iostat_target=3
 [ -n "$iostat_target" ] && TMUX_CMD+="split-window -t $iostat_target -v -l $(( $n_devices + 3 )) \"iostat -d -x -s -k --human -p $IOSTAT_DEVICE 2\" \; "
 
-TMUX_CMD+="split-window -t 2 -h -l 20 \"watch -n 60 -t -c 'bash -c $SCRIPT_DIR/estimate_fee/start.sh'\" "
+TMUX_CMD+="split-window -t 2 -h -l 20 \"watch -n 60 -t -c 'bash -c $SCRIPT_DIR/estimate_fee/start.sh'\" \; \
+    select-pane -t 1"
 
 eval $TMUX_CMD
