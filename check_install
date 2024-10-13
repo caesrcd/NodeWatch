@@ -7,7 +7,7 @@ command_exists() {
 
 # Check if the script is running as root
 check_root() {
-    [ "$EUID" -ne 0 ] || return 1
+    [ "$EUID" -ne 0 ] || return
 
     echo "Requires root privileges."
     if command_exists sudo; then
@@ -17,8 +17,6 @@ check_root() {
         echo "Enter the root user password to continue:"
         exec su -c "$0" "$@"
     fi
-    [ "$?" -ne 1 ] || exit 1
-    return 0
 }
 
 # Install packages based on the package manager
@@ -33,7 +31,18 @@ install_package() {
         elif command_exists dnf; then
             dnf install -y "$pkg"
         elif command_exists pacman; then
-            pacman -S --noconfirm "$pkg"
+            if [ "$pkg" == "multitail" ]; then
+                pacman -S --needed --noconfirm base-devel git
+                if command_exists yay; then
+                    exec_nosudo="yay -S multitail"
+                else
+                    exec_nosudo="git clone https://aur.archlinux.org/multitail.git multitail/build/;"
+                    exec_nosudo+="makepkg -si --noconfirm -D multitail/build/"
+                fi
+                sudo -u "$SUDO_USER" bash -c "$exec_nosudo"
+            else
+                pacman -S --noconfirm "$pkg"
+            fi
         else
             echo "No known package managers found!"
             exit 1
@@ -68,7 +77,6 @@ for cmd in "${cmd_list[@]}"; do
     fi
     echo "Installing..."
     check_root
-    [ "$?" -ne 0 ] || break
     install_package "${packages[$cmd]}"
 done
 
