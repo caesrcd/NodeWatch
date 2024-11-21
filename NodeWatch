@@ -13,11 +13,12 @@ SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
 CONFIG_FILE="$SCRIPT_DIR/config.env"
 
 if [ -f "$CONFIG_FILE" ]; then
-    BITCOIN_DATADIR=$(awk -F '=' '/^BITCOIN_DATADIR=/ {last=$2} END {print last}' "$CONFIG_FILE") 
+    BITCOIN_DATADIR=$(awk -F '=' '/^BITCOIN_DATADIR=/ {last=$2} END {print last}' "$CONFIG_FILE")
     FEES_FORECAST=$(awk -F '=' '/^FEES_FORECAST=/ {last=$2} END {print last}' "$CONFIG_FILE")
     IOSTAT_DEVICE=$(awk -F '=' '/^IOSTAT_DEVICE=/ {printf "%s,", $2}' "$CONFIG_FILE" | sed 's/,$//')
     SIZE_SCREEN=$(awk -F '=' '/^SIZE_SCREEN=/ {last=$2} END {print last}' "$CONFIG_FILE")
 fi
+[ -z "$FEES_FORECAST" ] && FEES_FORECAST="smart"
 
 [ -z "$BITCOIN_DATADIR" ] && BITCOIN_DATADIR="~/.bitcoin"
 if [ ! -f "$BITCOIN_DATADIR/debug.log" ]; then
@@ -48,21 +49,23 @@ elif [ $cols -lt 185 ]; then
     netinfo_arg=1
 fi
 
+msgpreload=$(printf 'Loading\u2026')
+
 TMUX_CMD="tmux new-session -s nodewatch \
-    \"watch -c -n 30 -t bitcoin-cli -rpcwait -getinfo -color=always\" \; \
+    \"echo $msgpreload;watch -c -n 30 -t bitcoin-cli -rpcwait -getinfo -color=always\" \; \
     set-option status off \; bind-key -n z detach-client \; bind-key -n q kill-session \; \
     resize-window -x $cols -y $lines \; \
-    split-window -v -l $(( $lines - 13 )) \"sleep 0.5;watch -c -n 30 -t $SCRIPT_DIR/price_alarm/start.sh\" \; \
+    split-window -v -l $(( $lines - 13 )) \"echo $msgpreload;sleep 0.5;watch -c -n 30 -t $SCRIPT_DIR/price_alarm/start.sh\" \; \
     split-window -t 0 -h -l $(( $cols - 45 )) \"multitail --config $SCRIPT_DIR/multitail/config -D -cS bitcoin $BITCOIN_DATADIR/debug.log\" \; \
     send-keys C-m \; \
-    split-window -t 2 -h -l $(( $cols - 78 )) \"watch -n 30 -t bitcoin-cli -rpcwait -netinfo $netinfo_arg\" \; "
+    split-window -t 2 -h -l $(( $cols - 78 )) \"echo $msgpreload;watch -n 30 -t bitcoin-cli -rpcwait -netinfo $netinfo_arg\" \; "
 
 [ $lines -ge 42 ] && TMUX_CMD+="split-window -t 2 -v -l $(( $lines - 28 )) \"$SCRIPT_DIR/htop/start.sh\" \; send-keys Escape \; "
 [ $lines -ge 31 -a $lines -le 41 ] && iostat_target=2
 [ $lines -ge $(( 44 + $n_devices + 1 )) ] && iostat_target=3
 [ -n "$iostat_target" ] && TMUX_CMD+="split-window -t $iostat_target -v -l $(( $n_devices + 3 )) \"iostat -d -x -s -k --human -p $IOSTAT_DEVICE 2\" \; "
 
-TMUX_CMD+="split-window -t 2 -h -l 20 \"watch -n 60 -t -c 'bash -c \\\"\\$SCRIPT_DIR/estimate_fee/start.sh \\$FEES_FORECAST\\\"'\" \; \
+TMUX_CMD+="split-window -t 2 -h -l 20 \"echo $msgpreload;watch -n 60 -t -c 'bash -c \\\"\\$SCRIPT_DIR/estimate_fee/start.sh \\$FEES_FORECAST\\\"'\" \; \
     select-pane -t 1"
 
 eval $TMUX_CMD
