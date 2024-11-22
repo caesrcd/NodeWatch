@@ -170,6 +170,22 @@ check_alarm() {
     done < <(echo $alarms | jq -c ".[]")
 }
 
+# Calculates columns for ASCII art based on font and number.
+calc_figlet_cols() {
+    local font="$1" price="$2"
+    local fncols char_length only_numbers
+
+    case "$font" in
+        big) fncols=7 ;;
+        small) fncols=6.2 ;;
+        *) fncols=4 ;;
+    esac
+
+    only_numbers=$(echo "$price" | tr -cd '0-9')
+    char_length="${#only_numbers}"
+    echo $(awk "BEGIN {print int($char_length * $fncols + 2)}")
+}
+
 exchange_selected=""
 for exchange in $(echo $exchanges | jq -r "to_entries[] | .key"); do
     update_price "$exchange"
@@ -197,23 +213,20 @@ price_now=$(get_price $curdef)
 price_ago=$(get_price $curdef 30sec)
 color=$(variation_color $price_now $price_ago)
 
+# Current dollar price with capital letters
 price_formatted=$(awk -v p="$price_now" 'BEGIN {printf "%\047.2f", p}')
 
-# Current dollar price with capital letters
-fonts=("big" "small" "mini" "mini" "mini")
-if [[ $tcols -gt 55 ]]; then font=0
-elif [[ $tcols -gt 50 ]]; then font=1
-elif [[ $tcols -gt 45 ]]; then font=2
-else font=3
-fi
+fonts=("big" "small" "mini")
+font=0
+while [ $font -lt 2 ]; do
+    fgt_cols=$(calc_figlet_cols "${fonts[$font]}" "$price_formatted")
+    (( fgt_cols < tcols )) && break
+    font=$((font + 1))
+done
 
-if (( $(echo "$price_now >= 100000000" | bc -l) )); then font=$(( font + 2 ))
-elif (( $(echo "$price_now >= 100000" | bc -l) )); then font=$(( font + 1 ))
-fi
-
-if [ $font -eq 2 ]; then body+="\n"; fi
-body+="\033[1;${color:5}$(figlet -f ${fonts[$font]} -w $tcols -c -m-0 "$price_formatted")\033[0m\n"
-if [ $font -ge 1 ]; then body+="\n\n"; fi
+[ $font -eq 2 ] && body+="\n"
+body+="\033[1;${color:5}$(figlet -f ${fonts[$font]} -w $tcols -c -m1 "$price_formatted")\033[0m\n"
+[ $font -ge 1 ] && body+="\n\n"
 
 # Current others price with small letters
 length=3
