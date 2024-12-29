@@ -6,8 +6,17 @@ convert_to_sat() {
     local fee="$1"
     fee=$(awk -v fee="$fee" 'BEGIN {printf "%.8f", fee}')
     fee=$(echo "$fee * 100000" | bc)
-    fee=$(awk -v fee="$fee" 'BEGIN {printf "%.0f", fee}')
+    fee=$(round_up "$fee")
     echo "${fee} sat/vB"
+}
+
+round_up() {
+    local number="$1"
+    if [[ "$number" =~ ^-?[0-9]+$ ]]; then
+        echo "$number"
+    else
+        echo "$number" | awk '{print int($1) + ($1 > int($1))}'
+    fi
 }
 
 mempool_loaded=$(bitcoin-cli -rpcwait getmempoolinfo | jq -r '.loaded')
