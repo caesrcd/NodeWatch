@@ -91,8 +91,7 @@ elif [ "$forecast_type" == "median" ]; then
     medianfee=$(echo "$secondblk $fees" | awk '{print ($1 + $4) / 2}')
     thirdblk=$(math_max "$minimum_fee" "$medianfee")
     minfee2x=$(echo "$minimum_fee" | awk '{print $1 * 2}')
-    medianfee=$(echo "$thirdblk $fees" | awk '{print ($1 + $5) / 2}')
-    economyfee=$(math_min "$medianfee" "$thirdblk")
+    economyfee=$(math_min "$minfee2x" "$thirdblk")
     laterblk=$(math_max "$minimum_fee" "$economyfee")
 
     firstblk=$(math_max $firstblk $secondblk $thirdblk $laterblk)
