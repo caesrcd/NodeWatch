@@ -89,6 +89,10 @@ else
     medianfee=$(echo "$thirdblk $fees" | awk '{print ($1 + $5) / 2}')
     economyfee=$(math_min "$medianfee" "$thirdblk")
     laterblk=$(math_max "$minimum_fee" "$economyfee")
+
+    firstblk=$(math_max $firstblk $secondblk $thirdblk $laterblk)
+    secondblk=$(math_max $secondblk $thirdblk $laterblk)
+    thirdblk=$(math_max $thirdblk $laterblk)
 fi
 
 firstblk=$(convert_to_sat "$firstblk")
