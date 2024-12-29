@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 
 forecast_type=$1
+if [ "$forecast_type" == "auto" ]; then
+    forecast_type=$(shuf -e "smart" "median" "mempool" -n 1)
+elif [ -z "$forecast_type" ]; then
+    forecast_type="smart"
+fi
 
 convert_to_sat() {
     local fee="$1"
@@ -37,12 +42,12 @@ round_up() {
 
 mempoolinfo=$(bitcoin-cli -rpcwait getmempoolinfo)
 mempool_loaded=$(echo "$mempoolinfo" | jq -r '.loaded')
-if [ "$mempool_loaded" == "false" -o "$forecast_type" != "median" ]; then
+if [ "$mempool_loaded" == "false" -o "$forecast_type" == "smart" ]; then
     firstblk=$(bitcoin-cli -rpcwait estimatesmartfee 2 "economical" | jq .feerate)
     secondblk=$(bitcoin-cli -rpcwait estimatesmartfee 4 "economical" | jq .feerate)
     thirdblk=$(bitcoin-cli -rpcwait estimatesmartfee 8 "economical" | jq .feerate)
     laterblk=$(bitcoin-cli -rpcwait estimatesmartfee 16 "economical" | jq .feerate)
-else
+elif [ "$forecast_type" == "median" ]; then
     tx_data=$(bitcoin-cli -rpcwait getrawmempool true | jq -c \
         'with_entries(.value |= {vsize, weight, fee: .fees.modified}) | to_entries |
         map({key, vsize: .value.vsize, weight: .value.weight, fee: .value.fee}) |
@@ -93,6 +98,16 @@ else
     firstblk=$(math_max $firstblk $secondblk $thirdblk $laterblk)
     secondblk=$(math_max $secondblk $thirdblk $laterblk)
     thirdblk=$(math_max $thirdblk $laterblk)
+elif [ "$forecast_type" == "mempool" ]; then
+    fees_recommended=$(curl -s "https://mempool.space/api/v1/fees/recommended")
+    if [ -z "$fees_recommended" ]; then
+        echo "Error: Failed to retrieve data from the API."
+        exit 1
+    fi
+    firstblk=$(echo "$fees_recommended" | jq -r '.fastestFee' | awk '{print $1 / 100000}')
+    secondblk=$(echo "$fees_recommended" | jq -r '.halfHourFee' | awk '{print $1 / 100000}')
+    thirdblk=$(echo "$fees_recommended" | jq -r '.hourFee' | awk '{print $1 / 100000}')
+    laterblk=$(echo "$fees_recommended" | jq -r '.economyFee' | awk '{print $1 / 100000}')
 fi
 
 firstblk=$(convert_to_sat "$firstblk")
