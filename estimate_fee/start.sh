@@ -10,6 +10,22 @@ convert_to_sat() {
     echo "${fee} sat/vB"
 }
 
+math_max() {
+    local max="$1"
+    for num in "$@"; do
+        max=$(echo -e "$max\n$num" | awk '{if ($1 > max) max=$1} END {print max}')
+    done
+    echo "$max"
+}
+
+math_min() {
+    local min="$1"
+    for num in "$@"; do
+        min=$(echo -e "$min\n$num" | awk -v min="$min" '{if ($1 < min) min=$1} END {print min}')
+    done
+    echo "$min"
+}
+
 round_up() {
     local number="$1"
     if [[ "$number" =~ ^-?[0-9]+$ ]]; then
@@ -19,7 +35,8 @@ round_up() {
     fi
 }
 
-mempool_loaded=$(bitcoin-cli -rpcwait getmempoolinfo | jq -r '.loaded')
+mempoolinfo=$(bitcoin-cli -rpcwait getmempoolinfo)
+mempool_loaded=$(echo "$mempoolinfo" | jq -r '.loaded')
 if [ "$mempool_loaded" == "false" -o "$forecast_type" != "median" ]; then
     firstblk=$(bitcoin-cli -rpcwait estimatesmartfee 2 "economical" | jq .feerate)
     secondblk=$(bitcoin-cli -rpcwait estimatesmartfee 4 "economical" | jq .feerate)
@@ -60,11 +77,18 @@ else
         acc_blk=$((acc_blk + 1))
     done
 
+    minimum_fee=$(echo "$mempoolinfo" | jq -r '.mempoolminfee')
     fees=$(echo "$fees" | awk '{$1=$1};1')
-    firstblk=$(echo "$fees" | cut -d' ' -f1)
-    secondblk=$(echo "$fees" | cut -d' ' -f2)
-    thirdblk=$(echo "$fees" | cut -d' ' -f3)
-    laterblk=$(echo "$fees" | cut -d' ' -f4)
+    medianfee=$(echo "$fees" | cut -d' ' -f1)
+    firstblk=$(math_max "$minimum_fee" "$medianfee")
+    medianfee=$(echo "$fees" | awk '{print ($1 + $2) / 2}')
+    secondblk=$(math_max "$minimum_fee" "$medianfee")
+    medianfee=$(echo "$secondblk $fees" | awk '{print ($1 + $4) / 2}')
+    thirdblk=$(math_max "$minimum_fee" "$medianfee")
+    minfee2x=$(echo "$minimum_fee" | awk '{print $1 * 2}')
+    medianfee=$(echo "$thirdblk $fees" | awk '{print ($1 + $5) / 2}')
+    economyfee=$(math_min "$medianfee" "$thirdblk")
+    laterblk=$(math_max "$minimum_fee" "$economyfee")
 fi
 
 firstblk=$(convert_to_sat "$firstblk")
