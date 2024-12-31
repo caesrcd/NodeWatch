@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
 
 forecast_type=$1
-if [ "$forecast_type" == "auto" ]; then
-    forecast_type=$(shuf -e "smart" "median" "mempool" -n 1)
-elif [ -z "$forecast_type" ]; then
-    forecast_type="smart"
-fi
 
-convert_to_sat() {
-    local fee="$1"
-    fee=$(awk -v fee="$fee" 'BEGIN {printf "%.8f", fee}')
-    fee=$(echo "$fee * 100000" | bc)
-    fee=$(round_up "$fee")
-    echo "${fee} sat/vB"
+# Round numbers up to the nearest integer.
+math_ceil() {
+    local number="$1"
+    if ! [[ "$number" =~ ^-?[0-9]+$ ]]; then
+        number=$(awk -v num="$number" 'BEGIN {print int(num) + (num > int(num))}')
+    fi
+    echo "$number"
 }
 
+# Find the maximum between two or more elements passed to it as arguments.
 math_max() {
     local max="$1"
     for num in "$@"; do
@@ -23,6 +20,7 @@ math_max() {
     echo "$max"
 }
 
+# Find the minimum between two or more elements passed to it as arguments.
 math_min() {
     local min="$1"
     for num in "$@"; do
@@ -31,23 +29,9 @@ math_min() {
     echo "$min"
 }
 
-round_up() {
-    local number="$1"
-    if [[ "$number" =~ ^-?[0-9]+$ ]]; then
-        echo "$number"
-    else
-        echo "$number" | awk '{print int($1) + ($1 > int($1))}'
-    fi
-}
-
 mempoolinfo=$(bitcoin-cli -rpcwait getmempoolinfo)
 mempool_loaded=$(echo "$mempoolinfo" | jq -r '.loaded')
-if [ "$mempool_loaded" == "false" -o "$forecast_type" == "smart" ]; then
-    firstblk=$(bitcoin-cli -rpcwait estimatesmartfee 2 "economical" | jq .feerate)
-    secondblk=$(bitcoin-cli -rpcwait estimatesmartfee 4 "economical" | jq .feerate)
-    thirdblk=$(bitcoin-cli -rpcwait estimatesmartfee 8 "economical" | jq .feerate)
-    laterblk=$(bitcoin-cli -rpcwait estimatesmartfee 16 "economical" | jq .feerate)
-elif [ "$forecast_type" == "median" ]; then
+if [ "$mempool_loaded" == "true" -a "$forecast_type" == "median" ]; then
     tx_data=$(bitcoin-cli -rpcwait getrawmempool true | jq -c \
         'with_entries(.value |= {vsize, weight, fee: .fees.modified}) | to_entries |
         map({key, vsize: .value.vsize, weight: .value.weight, fee: .value.fee}) |
@@ -57,7 +41,7 @@ elif [ "$forecast_type" == "median" ]; then
     tx_per_blk=0
     while IFS= read -r item; do
         weight=$(echo "$item" | jq -r '.weight')
-        if ((acc_weight + weight > 450000)); then
+        if ((acc_weight + weight >= 200000)); then
             break
         fi
         tx_per_blk=$((tx_per_blk + 1))
@@ -65,11 +49,10 @@ elif [ "$forecast_type" == "median" ]; then
     done <<< "$(echo "$tx_data" | jq -c '.[]')"
 
     total_tx=$(echo "$tx_data" | jq 'length')
-    tx_per_blk=$((tx_per_blk * 4))
+    tx_per_blk=$((tx_per_blk * 5))
 
     acc_blk=1
-    while [ $acc_blk -le 4 ]; do
-        [ $acc_blk -eq 4 ] && acc_blk=8
+    while [ $acc_blk -le 3 ]; do
         median=$((tx_per_blk * acc_blk))
         if ((median > total_tx)); then
             median=$((total_tx - tx_per_blk))
@@ -85,14 +68,14 @@ elif [ "$forecast_type" == "median" ]; then
     minimum_fee=$(echo "$mempoolinfo" | jq -r '.mempoolminfee')
     fees=$(echo "$fees" | awk '{$1=$1};1')
     medianfee=$(echo "$fees" | cut -d' ' -f1)
-    firstblk=$(math_max "$minimum_fee" "$medianfee")
+    firstblk=$(math_max $minimum_fee $medianfee)
     medianfee=$(echo "$fees" | awk '{print ($1 + $2) / 2}')
-    secondblk=$(math_max "$minimum_fee" "$medianfee")
+    secondblk=$(math_max $minimum_fee $medianfee)
     medianfee=$(echo "$secondblk $fees" | awk '{print ($1 + $4) / 2}')
-    thirdblk=$(math_max "$minimum_fee" "$medianfee")
-    minfee2x=$(echo "$minimum_fee" | awk '{print $1 * 2}')
-    economyfee=$(math_min "$minfee2x" "$thirdblk")
-    laterblk=$(math_max "$minimum_fee" "$economyfee")
+    thirdblk=$(math_max $minimum_fee $medianfee)
+    minfee2x=$(awk -v fee="$minimum_fee" 'BEGIN {print fee * 2}')
+    economyfee=$(math_min $minfee2x $thirdblk)
+    laterblk=$(math_max $minimum_fee $economyfee)
 
     firstblk=$(math_max $firstblk $secondblk $thirdblk $laterblk)
     secondblk=$(math_max $secondblk $thirdblk $laterblk)
@@ -103,16 +86,28 @@ elif [ "$forecast_type" == "mempool" ]; then
         echo "Error: Failed to retrieve data from the API."
         exit 1
     fi
-    firstblk=$(echo "$fees_recommended" | jq -r '.fastestFee' | awk '{print $1 / 100000}')
-    secondblk=$(echo "$fees_recommended" | jq -r '.halfHourFee' | awk '{print $1 / 100000}')
-    thirdblk=$(echo "$fees_recommended" | jq -r '.hourFee' | awk '{print $1 / 100000}')
-    laterblk=$(echo "$fees_recommended" | jq -r '.economyFee' | awk '{print $1 / 100000}')
+    firstblk=$(echo "$fees_recommended" | jq -r '.fastestFee')
+    secondblk=$(echo "$fees_recommended" | jq -r '.halfHourFee')
+    thirdblk=$(echo "$fees_recommended" | jq -r '.hourFee')
+    laterblk=$(echo "$fees_recommended" | jq -r '.economyFee')
+else
+    firstblk=$(bitcoin-cli -rpcwait estimatesmartfee 2 "economical" | jq .feerate)
+    secondblk=$(bitcoin-cli -rpcwait estimatesmartfee 4 "economical" | jq .feerate)
+    thirdblk=$(bitcoin-cli -rpcwait estimatesmartfee 8 "economical" | jq .feerate)
+    laterblk=$(bitcoin-cli -rpcwait estimatesmartfee 16 "economical" | jq .feerate)
 fi
 
-firstblk=$(convert_to_sat "$firstblk")
-secondblk=$(convert_to_sat "$secondblk")
-thirdblk=$(convert_to_sat "$thirdblk")
-laterblk=$(convert_to_sat "$laterblk")
+if [ "$forecast_type" != "mempool" ]; then
+    firstblk=$(awk -v fee="$firstblk" 'BEGIN {print fee * 100000}')
+    secondblk=$(awk -v fee="$secondblk" 'BEGIN {print fee * 100000}')
+    thirdblk=$(awk -v fee="$thirdblk" 'BEGIN {print fee * 100000}')
+    laterblk=$(awk -v fee="$laterblk" 'BEGIN {print fee * 100000}')
+fi
+
+firstblk="$(math_ceil $firstblk) sat/vB"
+secondblk="$(math_ceil $secondblk) sat/vB"
+thirdblk="$(math_ceil $thirdblk) sat/vB"
+laterblk="$(math_ceil $laterblk) sat/vB"
 
 tcols=$(tput cols)
 
