@@ -18,7 +18,11 @@ if [ -f "$CONFIG_FILE" ]; then
     IOSTAT_DEVICE=$(awk -F '=' '/^IOSTAT_DEVICE=/ {printf "%s,", $2}' "$CONFIG_FILE" | sed 's/,$//')
     SIZE_SCREEN=$(awk -F '=' '/^SIZE_SCREEN=/ {last=$2} END {print last}' "$CONFIG_FILE")
 fi
-[ -z "$FEES_FORECAST" ] && FEES_FORECAST="smart"
+if [ -z "$FEES_FORECAST" ]; then
+    FEES_FORECAST="smart"
+elif [ "$FEES_FORECAST" == "auto" ]; then
+    FEES_FORECAST=$(shuf -e "smart" "median" "mempool" -n 1)
+fi
 
 [ -z "$BITCOIN_DATADIR" ] && BITCOIN_DATADIR="~/.bitcoin"
 if [ ! -f "$BITCOIN_DATADIR/debug.log" ]; then
@@ -65,7 +69,7 @@ TMUX_CMD="tmux new-session -s nodewatch \
 [ $lines -ge $(( 44 + $n_devices + 1 )) ] && iostat_target=3
 [ -n "$iostat_target" ] && TMUX_CMD+="split-window -t $iostat_target -v -l $(( $n_devices + 3 )) \"iostat -d -x -s -k --human -p $IOSTAT_DEVICE 2\" \; "
 
-TMUX_CMD+="split-window -t 2 -h -l 20 \"echo $msgpreload;watch -n 60 -t -c 'bash -c \\\"\\$SCRIPT_DIR/estimate_fee/start.sh \\$FEES_FORECAST\\\"'\" \; \
+TMUX_CMD+="split-window -t 2 -h -l 18 \"echo $msgpreload;watch -n 60 -t -c 'bash -c \\\"\\$SCRIPT_DIR/estimate_fee/start.sh \\$FEES_FORECAST\\\"'\" \; \
     select-pane -t 1"
 
 eval $TMUX_CMD
