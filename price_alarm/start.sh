@@ -38,6 +38,17 @@ if [[ -f "$SCRIPT_DIR/alarms.json" ]]; then
     alarms=$(cat "$SCRIPT_DIR/alarms.json")
 fi
 
+if [[ -f "$SCRIPT_DIR/aths.json" ]]; then
+    time_file=$(stat -c %Y "$SCRIPT_DIR/aths.json")
+    time_current=$(date +%s)
+    if ((time_file + 300 < time_current)) ||
+        ! jq -e . "$SCRIPT_DIR/aths.json" >/dev/null 2>&1; then
+        rm -f "$SCRIPT_DIR/aths.json"
+    else
+        ath_prices=$(cat "$SCRIPT_DIR/aths.json")
+    fi
+fi
+
 # Gets the price according to the symbol parameter and defined time.
 get_price() {
     time_gap=$([ -n "$2" ] && date -d "$2 ago" +%s || echo $time_now)
@@ -87,6 +98,11 @@ variation_color() {
             color="\033[32m"
         elif (( $(echo "$1 < $2" | bc -l) )); then
             color="\033[31m"
+        fi
+    fi
+    if [ -n "$3" ]; then
+        if (( $(echo "$1 > $3" | bc -l) )); then
+            color="\033[1;33m"
         fi
     fi
     echo $color
@@ -205,13 +221,34 @@ EOF
 fi
 curdef=$(echo $exchanges | jq -r ".${exchange_selected}.api | to_entries | first(.[]).key")
 
+if [ -z "$ath_prices" ]; then
+    json=$(curl -s "https://api.coingecko.com/api/v3/coins/bitcoin")
+    ath_prices="{"
+    for currency in $(echo $exchanges | jq -r ".${exchange_selected}.api | keys[]"); do
+        price=$(echo $json | jq -r ".market_data.ath.$currency?")
+        if [[ "$price" =~ $re_price ]]; then
+            price=$(LC_NUMERIC=C printf "%.2f" $price)
+        else
+            price=""
+        fi
+        ath_prices+="\"${currency}\":\"${price}\","
+    done
+    ath_prices="${ath_prices:0:-1}}"
+
+    if ! jq -e . >/dev/null 2>&1 <<< "$ath_prices"; then
+        echo "Failed to parse JSON, or got false/null."
+        exit 1
+    fi
+fi
+
 body="$(printf '%*s' $(( ( $tcols - 16 - ${#exchange_selected} ) / 2 )) '')"
 body+="Bitcoin Price - ${exchange_selected^}\n\n"
 
 # Sets the color of the current dollar price compared to the price 30 seconds ago
 price_now=$(get_price $curdef)
 price_ago=$(get_price $curdef 30sec)
-color=$(variation_color $price_now $price_ago)
+price_ath=$(echo $ath_prices | jq -r ".${curdef}")
+color=$(variation_color $price_now $price_ago $price_ath)
 
 # Current dollar price with capital letters
 price_formatted=$(awk -v p="$price_now" 'BEGIN {printf "%\047.2f", p}')
@@ -240,7 +277,8 @@ for currency in $(echo $exchanges | jq -r ".${exchange_selected}.api | to_entrie
     # Sets the color of the current price compared to the price 30 seconds ago
     price_now=$(get_price ${currency})
     price_ago=$(get_price ${currency} 30sec)
-    color=$(variation_color $price_now $price_ago)
+    price_ath=$(echo $ath_prices | jq -r ".${currency}")
+    color=$(variation_color $price_now $price_ago $price_ath)
 
     # Current price with small letters
     price_formatted="${currency^^} "$(awk -v p="$price_now" 'BEGIN {printf "%\047.2f", p}')
@@ -256,7 +294,21 @@ ls_title=("5m" "15m" "1h" "2h" "4h" "8h" "12h" "1d")
 ls_ago=("5min" "15min" "1hour" "2hour" "4hour" "8hour" "12hour" "1day")
 body+="\n\n$(ls_vartime $ls_title $ls_ago)"
 
-if [[ -n "$alarms" ]]; then
+ath_news=$ath_prices
+for currency in $(echo $exchanges | jq -r ".${exchange_selected}.api | keys[]"); do
+    price_now=$(get_price $currency)
+    price_ath=$(echo $ath_prices | jq -r ".${currency}")
+    if [ -z "$price_ath" ] ||
+        (( $(echo "$price_now <= $price_ath" | bc -l) )); then
+        continue
+    fi
+    ath_news=$(echo $ath_news | jq --arg c "$currency" --arg p "$price_now" '.[$c] = $p')
+done
+echo $ath_news | jq -c . > "$SCRIPT_DIR/aths.json"
+
+if [ "$ath_prices" != "$ath_news" ]; then
+    nohup play -q "$SCRIPT_DIR/alarms/win-high-long.mp3" >/dev/null 2>&1 &
+elif [[ -n "$alarms" ]]; then
     check_alarm
 fi
 echo -ne "$body"
