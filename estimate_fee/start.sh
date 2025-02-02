@@ -37,41 +37,46 @@ if [ "$mempool_loaded" == "true" -a "$forecast_type" == "median" ]; then
         map({key, vsize: .value.vsize, weight: .value.weight, fee: .value.fee}) |
         sort_by(.fee / .vsize) | reverse')
 
-    acc_weight=0
-    tx_per_blk=0
-    while IFS= read -r item; do
-        weight=$(echo "$item" | jq -r '.weight')
-        if ((acc_weight + weight >= 200000)); then
-            break
-        fi
-        tx_per_blk=$((tx_per_blk + 1))
-        acc_weight=$((acc_weight + weight))
-    done <<< "$(echo "$tx_data" | jq -c '.[]')"
-
     total_tx=$(echo "$tx_data" | jq 'length')
-    tx_per_blk=$((tx_per_blk * 5))
+    tx_per_blk=1000
+    if ((total_tx > 200)); then
+        acc_weight=0
+        tx_per_blk=0
+        while IFS= read -r item; do
+            weight=$(echo "$item" | jq -r '.weight')
+            if ((acc_weight + weight >= 200000)); then
+                break
+            fi
+            tx_per_blk=$((tx_per_blk + 1))
+            acc_weight=$((acc_weight + weight))
+        done <<< "$(echo "$tx_data" | jq -c '.[]')"
+        tx_per_blk=$((tx_per_blk * 5))
+    fi
 
     acc_blk=1
     while [ $acc_blk -le 3 ]; do
         median=$((tx_per_blk * acc_blk))
-        if ((median > total_tx)); then
-            median=$((total_tx - tx_per_blk))
-            ((median < 1)) && median=1
-        fi
+        acc_blk=$((acc_blk + 1))
+        ((total_tx / (acc_blk - 1) < 2500 || median > total_tx)) && continue
         fee=$(echo "$tx_data" | jq --argjson median "$median" '.[$median].fee')
         vsize=$(echo "$tx_data" | jq --argjson median "$median" '.[$median].vsize')
-        [ "$fee" = "" -o "$vsize" == "" ] && fee=0.00000001 vsize=1
+        [ "$fee" = "" -o "$vsize" == "" ] && continue
         fees="$fees "$(echo "$fee $vsize" | awk '{print $1 / $2 * 1000}')
-        acc_blk=$((acc_blk + 1))
     done
 
     minimum_fee=$(echo "$mempoolinfo" | jq -r '.mempoolminfee')
     fees=$(echo "$fees" | awk '{$1=$1};1')
-    medianfee=$(echo "$fees" | cut -d' ' -f1)
+    medianfee=$(echo "$fees" | awk '{print $1}')
     firstblk=$(math_max $minimum_fee $medianfee)
-    medianfee=$(echo "$fees" | awk '{print ($1 + $2) / 2}')
+    medianfee=$(echo "$fees" | awk '{print $2}')
+    if awk -v x="$medianfee" 'BEGIN {exit !(x > 0.00001)}'; then
+        medianfee=$(echo "$fees" | awk '{print ($1 + $2) / 2}')
+    fi
     secondblk=$(math_max $minimum_fee $medianfee)
-    medianfee=$(echo "$secondblk $fees" | awk '{print ($1 + $4) / 2}')
+    medianfee=$(echo "$fees" | awk '{print $3}')
+    if awk -v x="$medianfee" 'BEGIN {exit !(x > 0.00001)}'; then
+        medianfee=$(echo "$secondblk $fees" | awk '{print ($1 + $4) / 2}')
+    fi
     thirdblk=$(math_max $minimum_fee $medianfee)
     minfee2x=$(awk -v fee="$minimum_fee" 'BEGIN {print fee * 2}')
     economyfee=$(math_min $minfee2x $thirdblk)
