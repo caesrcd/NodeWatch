@@ -2,11 +2,20 @@
 
 forecast_type=$1
 
-# Round numbers up to the nearest integer.
-math_ceil() {
+# Round numbers up to the nearest integer, except:
+# - Numbers between 0 and 0.01 are rounded up to 0.01.
+# - Numbers between 0.01 and 1 are rounded up to two decimal places.
+math_round_up() {
     local number="$1"
     if ! [[ "$number" =~ ^-?[0-9]+$ ]]; then
-        number=$(awk -v num="$number" 'BEGIN {print int(num) + (num > int(num))}')
+        number=$(awk -v num="$number" 'BEGIN {
+            if (num > 0 && num < 0.01)
+                printf "%.2f\n", 0.01;
+            else if (num < 1 && num > 0)
+                printf "%.2f\n", (int(num * 100 + 0.99) / 100);
+            else
+                print int(num) + (num > int(num));
+        }')
     fi
     echo "$number"
 }
@@ -32,52 +41,33 @@ math_min() {
 mempoolinfo=$(bitcoin-cli -rpcwait getmempoolinfo)
 mempool_loaded=$(echo "$mempoolinfo" | jq -r '.loaded')
 if [ "$mempool_loaded" == "true" -a "$forecast_type" == "median" ]; then
-    tx_data=$(bitcoin-cli -rpcwait getrawmempool true | jq -c \
-        'with_entries(.value |= {vsize, weight, fee: .fees.modified}) | to_entries |
-        map({key, vsize: .value.vsize, weight: .value.weight, fee: .value.fee}) |
-        sort_by(.fee / .vsize) | reverse')
-
-    total_tx=$(echo "$tx_data" | jq 'length')
-    tx_per_blk=1000
-    if ((total_tx > 200)); then
-        acc_weight=0
-        tx_per_blk=0
-        while IFS= read -r item; do
-            weight=$(echo "$item" | jq -r '.weight')
-            if ((acc_weight + weight >= 200000)); then
-                break
-            fi
-            tx_per_blk=$((tx_per_blk + 1))
-            acc_weight=$((acc_weight + weight))
-        done <<< "$(echo "$tx_data" | jq -c '.[]')"
-        tx_per_blk=$((tx_per_blk * 5))
+    fees="[]"
+    rawmempool=$(bitcoin-cli -rpcwait getrawmempool true)
+    if [ "$rawmempool" != "{}" ]; then
+        fees=$(echo "$rawmempool" | jq -s \
+          'map(to_entries[] | {fee: (.value.fees.modified / .value.vsize * 1e8), weight: .value.weight})
+          | reduce .[] as $tx ({"blocks": [[]], "total_weight": [0]};
+              if .total_weight[-1] + $tx.weight <= 3996000 then
+                  .blocks[-1] += [$tx.fee] | .total_weight[-1] += $tx.weight
+              elif (.blocks | length) < 3 then
+                  .blocks += [[$tx.fee]] | .total_weight += [$tx.weight]
+              else .
+              end)
+          | .blocks[:3]
+          | map(sort | if length % 2 == 1 then .[length/2 | floor] else (.[length/2 - 1] + .[length/2]) / 2 end)')
     fi
 
-    acc_blk=1
-    while [ $acc_blk -le 3 ]; do
-        median=$((tx_per_blk * acc_blk))
-        acc_blk=$((acc_blk + 1))
-        ((total_tx / (acc_blk - 1) < 2500 || median > total_tx)) && continue
-        fee=$(echo "$tx_data" | jq --argjson median "$median" '.[$median].fee')
-        vsize=$(echo "$tx_data" | jq --argjson median "$median" '.[$median].vsize')
-        [ "$fee" = "" -o "$vsize" == "" ] && continue
-        fees="$fees "$(echo "$fee $vsize" | awk '{print $1 / $2 * 1000}')
+    minimum_fee=$(echo "$mempoolinfo" | jq -r '.mempoolminfee * 1e5')
+    blocks=("firstblk" "secondblk" "thirdblk")
+    for i in {0..2}; do
+        medianfee=$(echo "$fees" | jq -r ".[${i}] // 0")
+        awk -v x="$medianfee" 'BEGIN {exit !(x == 0)}' && break
+        [ -n "$prev_fee" ] && medianfee=$(echo "$prev_fee $medianfee" | awk '{print ($1 + $2) / 2}')
+        declare "${blocks[i]}"=$(math_max "$minimum_fee" "$medianfee")
+        prev_fee=${!blocks[i]}
     done
 
-    minimum_fee=$(echo "$mempoolinfo" | jq -r '.mempoolminfee')
-    fees=$(echo "$fees" | awk '{$1=$1};1')
-    medianfee=$(echo "$fees" | awk '{print $1}')
-    firstblk=$(math_max $minimum_fee $medianfee)
-    medianfee=$(echo "$fees" | awk '{print $2}')
-    if awk -v x="$medianfee" 'BEGIN {exit !(x > 0.00001)}'; then
-        medianfee=$(echo "$fees" | awk '{print ($1 + $2) / 2}')
-    fi
-    secondblk=$(math_max $minimum_fee $medianfee)
-    medianfee=$(echo "$fees" | awk '{print $3}')
-    if awk -v x="$medianfee" 'BEGIN {exit !(x > 0.00001)}'; then
-        medianfee=$(echo "$secondblk $fees" | awk '{print ($1 + $4) / 2}')
-    fi
-    thirdblk=$(math_max $minimum_fee $medianfee)
+
     minfee2x=$(awk -v fee="$minimum_fee" 'BEGIN {print fee * 2}')
     economyfee=$(math_min $minfee2x $thirdblk)
     laterblk=$(math_max $minimum_fee $economyfee)
@@ -96,23 +86,16 @@ elif [ "$forecast_type" == "mempool" ]; then
     thirdblk=$(echo "$fees_recommended" | jq -r '.hourFee')
     laterblk=$(echo "$fees_recommended" | jq -r '.economyFee')
 else
-    firstblk=$(bitcoin-cli -rpcwait estimatesmartfee 2 "economical" | jq .feerate)
-    secondblk=$(bitcoin-cli -rpcwait estimatesmartfee 4 "economical" | jq .feerate)
-    thirdblk=$(bitcoin-cli -rpcwait estimatesmartfee 8 "economical" | jq .feerate)
-    laterblk=$(bitcoin-cli -rpcwait estimatesmartfee 16 "economical" | jq .feerate)
+    firstblk=$(bitcoin-cli -rpcwait estimatesmartfee 2 "economical" | jq '.feerate * 1e5')
+    secondblk=$(bitcoin-cli -rpcwait estimatesmartfee 4 "economical" | jq '.feerate * 1e5')
+    thirdblk=$(bitcoin-cli -rpcwait estimatesmartfee 8 "economical" | jq '.feerate * 1e5')
+    laterblk=$(bitcoin-cli -rpcwait estimatesmartfee 16 "economical" | jq '.feerate * 1e5')
 fi
 
-if [ "$forecast_type" != "mempool" ]; then
-    firstblk=$(awk -v fee="$firstblk" 'BEGIN {print fee * 100000}')
-    secondblk=$(awk -v fee="$secondblk" 'BEGIN {print fee * 100000}')
-    thirdblk=$(awk -v fee="$thirdblk" 'BEGIN {print fee * 100000}')
-    laterblk=$(awk -v fee="$laterblk" 'BEGIN {print fee * 100000}')
-fi
-
-firstblk="$(math_ceil $firstblk) sat/vB"
-secondblk="$(math_ceil $secondblk) sat/vB"
-thirdblk="$(math_ceil $thirdblk) sat/vB"
-laterblk="$(math_ceil $laterblk) sat/vB"
+firstblk="$(math_round_up $firstblk) sat/vB"
+secondblk="$(math_round_up $secondblk) sat/vB"
+thirdblk="$(math_round_up $thirdblk) sat/vB"
+laterblk="$(math_round_up $laterblk) sat/vB"
 
 tcols=$(tput cols)
 
