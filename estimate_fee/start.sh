@@ -46,7 +46,7 @@ if [ "$mempool_loaded" == "true" -a "$forecast_type" == "median" ]; then
     if [ "$rawmempool" != "{}" ]; then
         fees=$(echo "$rawmempool" | jq -s \
           'map(to_entries[] | {fee: (.value.fees.modified / .value.vsize * 1e8), weight: .value.weight})
-          | reduce .[] as $tx ({"blocks": [[]], "total_weight": [0]};
+          | sort_by(.fee) | reverse | reduce .[] as $tx ({"blocks": [[]], "total_weight": [0]};
               if .total_weight[-1] + $tx.weight <= 3996000 then
                   .blocks[-1] += [$tx.fee] | .total_weight[-1] += $tx.weight
               elif (.blocks | length) < 3 then
