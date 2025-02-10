@@ -21,7 +21,7 @@ math_round_up() {
 math_max() {
     local max="$1"
     for num in "$@"; do
-        max=$(echo -e "$max\n$num" | awk '{if ($1 > max) max=$1} END {print max}')
+        max=$(echo -e "$max\n$num" | awk -v max="$max" '{if ($1 >= max) max=$1} END {print max}')
     done
     echo "$max"
 }
@@ -30,7 +30,7 @@ math_max() {
 math_min() {
     local min="$1"
     for num in "$@"; do
-        min=$(echo -e "$min\n$num" | awk -v min="$min" '{if ($1 < min) min=$1} END {print min}')
+        min=$(echo -e "$min\n$num" | awk -v min="$min" '{if ($1 <= min) min=$1} END {print min}')
     done
     echo "$min"
 }
