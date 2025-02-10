@@ -2,19 +2,16 @@
 
 forecast_type=$1
 
-# Round numbers up to the nearest integer, except:
-# - Numbers between 0 and 0.01 are rounded up to 0.01.
-# - Numbers between 0.01 and 1 are rounded up to two decimal places.
+# Round numbers up to the nearest integer except when it is less than 1
 math_round_up() {
     local number="$1"
     if ! [[ "$number" =~ ^-?[0-9]+$ ]]; then
         number=$(awk -v num="$number" 'BEGIN {
-            if (num > 0 && num < 0.01)
-                printf "%.2f\n", 0.01;
-            else if (num < 1 && num > 0)
-                printf "%.2f\n", (int(num * 100 + 0.99) / 100);
-            else
-                print int(num) + (num > int(num));
+            if (num > 0.999) print int(num) + (num > int(num));
+            else if (num < 0.01) print (num < 0.01 ? num : sprintf("%.3f", num));
+            else if (num < 0.1) print sprintf("%.2f", num);
+            else if (num < 1) print sprintf("%.1f", num);
+            else print num;
         }')
     fi
     echo "$number"
