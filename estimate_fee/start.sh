@@ -58,12 +58,12 @@ if [ "$mempool_loaded" == "true" -a "$forecast_type" == "median" ]; then
     blocks=("firstblk" "secondblk" "thirdblk")
     for i in {0..2}; do
         medianfee=$(echo "$fees" | jq -r ".[${i}] // 0")
-        awk -v x="$medianfee" 'BEGIN {exit !(x == 0)}' && break
-        [ -n "$prev_fee" ] && medianfee=$(echo "$prev_fee $medianfee" | awk '{print ($1 + $2) / 2}')
+        if awk -v x="$medianfee" 'BEGIN {exit !(x != 0)}'; then
+            [ -n "$prev_fee" ] && medianfee=$(echo "$prev_fee $medianfee" | awk '{print ($1 + $2) / 2}')
+            prev_fee=${!blocks[i]}
+        fi
         declare "${blocks[i]}"=$(math_max "$minimum_fee" "$medianfee")
-        prev_fee=${!blocks[i]}
     done
-
 
     minfee2x=$(awk -v fee="$minimum_fee" 'BEGIN {print fee * 2}')
     economyfee=$(math_min $minfee2x $thirdblk)
