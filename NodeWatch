@@ -64,7 +64,7 @@ TMUX_CMD="tmux new-session -s nodewatch \
     send-keys C-m \; \
     split-window -t 2 -h -l $(( $cols - 78 )) \"echo $msgpreload;watch -n 3 -t bitcoin-cli -rpcwait -netinfo $netinfo_arg\" \; "
 
-[ $lines -ge 42 ] && TMUX_CMD+="split-window -t 2 -v -l $(( $lines - 28 )) \"$SCRIPT_DIR/htop/start.sh\" \; send-keys Escape \; "
+[ $lines -ge 42 ] && TMUX_CMD+="split-window -t 2 -v -l $(( $lines - 28 )) \"$SCRIPT_DIR/htop/start.sh\" \; "
 [ $lines -ge 31 -a $lines -le 41 ] && iostat_target=2
 [ $lines -ge $(( 44 + $n_devices + 1 )) ] && iostat_target=3
 [ -n "$iostat_target" ] && TMUX_CMD+="split-window -t $iostat_target -v -l $(( $n_devices + 3 )) \"iostat -d -x -s -k --human -p $IOSTAT_DEVICE 2\" \; "

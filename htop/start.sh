@@ -3,7 +3,14 @@
 SCRIPT_PATH=$(readlink -f "$0")
 SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
 
-pids=$(pgrep -d',' '(bitcoin-qt|bitcoind|tor|i2pd|electrs|cjdroute)')
+tmux send-keys -t nodewatch:0.4 Escape
+psearch="(bitcoin-qt|bitcoind|tor|i2pd|electrs|cjdroute)"
+pids=$(pgrep -d',' $psearch)
+( while true; do
+    sleep 60s
+    pnewids=$(pgrep -d',' $psearch)
+    [ "$pids" != "$pnewids" ] && tmux respawn-pane -k -t nodewatch:0.4
+done ) &
 
 num_cores=$(nproc)
 [ "$num_cores" -gt 8 ] && cpus_config="AllCPUs8"
