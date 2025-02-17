@@ -19,4 +19,4 @@ columns+=" $mem_config"
 param="column_meters_0="
 sed -i "s/^$param.*/$param$columns/" "$SCRIPT_DIR/htop.conf"
 
-HTOPRC="$SCRIPT_DIR/htop.conf" htop -p $pids
+HTOPRC="$SCRIPT_DIR/htop.conf" htop -p $pids --readonly
