@@ -35,6 +35,7 @@ math_min() {
     echo "$min"
 }
 
+bitcoin-cli -rpcwait estimatesmartfee 1 >/dev/null 2>&1 || forecast_type="mempool"
 mempoolinfo=$(bitcoin-cli -rpcwait getmempoolinfo)
 mempool_loaded=$(echo "$mempoolinfo" | jq -r '.loaded')
 if [ "$mempool_loaded" == "true" -a "$forecast_type" == "median" ]; then
