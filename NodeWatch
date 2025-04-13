@@ -47,9 +47,9 @@ if [ $cols -lt 150 -o $lines -lt 27 ]; then
 fi
 
 netinfo_arg=3
-if [ $lines -lt 30 -o $cols -lt 160 ]; then
+if [ $lines -lt 30 -o $cols -lt 168 ]; then
     netinfo_arg=0
-elif [ $cols -lt 185 ]; then
+elif [ $cols -lt 190 ]; then
     netinfo_arg=1
 fi
 
