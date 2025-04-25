@@ -4,11 +4,11 @@ SCRIPT_PATH=$(readlink -f "$0")
 SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
 
 tmux send-keys -t nodewatch:0.4 Escape
-psearch="(bitcoin-qt|bitcoind|tor|i2pd|electrs|cjdroute)"
-pids=$(pgrep -d',' $psearch)
+psearch="bin/(bitcoin-qt|bitcoind|tor|i2pd|electrs|cjdroute)"
+pids=$(pgrep -d',' -f $psearch)
 ( while true; do
     sleep 60s
-    pnewids=$(pgrep -d',' $psearch)
+    pnewids=$(pgrep -d',' -f $psearch)
     [ "$pids" != "$pnewids" ] && tmux respawn-pane -k -t nodewatch:0.4
 done ) &
 
