@@ -55,9 +55,9 @@ fi
 
 msgpreload=$(printf 'Loading\u2026')
 
-TMUX_CMD="tmux new-session -s nodewatch \
+TMUX_CMD="tmux new-session -d -s nodewatch \
     \"echo $msgpreload;watch -c -n 5 -t bitcoin-cli -rpcwait -getinfo -color=always\" \; \
-    set-option status off \; bind-key -n z detach-client \; bind-key -n q kill-session \; \
+    set-option status off \; set-option key-table key_nodewatch \; \
     resize-window -x $cols -y $lines \; \
     split-window -v -l $(( $lines - 13 )) \"echo $msgpreload;sleep 0.5;watch -c -n 30 -t $SCRIPT_DIR/price_alarm/start.sh\" \; \
     split-window -t 0 -h -l $(( $cols - 45 )) \"multitail --config $SCRIPT_DIR/multitail/config -D -cS bitcoin $BITCOIN_DATADIR/debug.log\" \; \
@@ -73,3 +73,8 @@ TMUX_CMD+="split-window -t 2 -h -l 18 \"echo $msgpreload;watch -n 30 -t -c 'bash
     select-pane -t 1"
 
 eval $TMUX_CMD
+
+tmux bind-key -T key_nodewatch z confirm-before -p "Detach from this session? (y/n)" detach-client
+tmux bind-key -T key_nodewatch q confirm-before -p "Kill this session? (y/n)" kill-session
+
+tmux -2 attach-session -t nodewatch
