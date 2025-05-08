@@ -192,7 +192,7 @@ calc_figlet_cols() {
     local fncols char_length only_numbers
 
     case "$font" in
-        big) fncols=7 ;;
+        big) fncols=6.9 ;;
         small) fncols=6.2 ;;
         *) fncols=4 ;;
     esac
