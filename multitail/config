@@ -1,5 +1,5 @@
 colorscheme:bitcoin
-cs_re:cyan:^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z
+cs_re:cyan:^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|GMT[-+][0-9]{2})?
 cs_re:red:disconnecting peer=[0-9]+
 cs_re:green:Added connection peer=[0-9]+
 cs_re:green,,bold:Bitcoin Core version v.*|UpdateTip:|received block|succeeded
