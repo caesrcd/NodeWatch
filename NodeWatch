@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 ./check_install
 [ "$?" -ne 1 ] || exit 1
@@ -20,17 +20,17 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 if [ -z "$FEES_FORECAST" ]; then
     FEES_FORECAST="smart"
-elif [ "$FEES_FORECAST" == "auto" ]; then
+elif [ "$FEES_FORECAST" = "auto" ]; then
     FEES_FORECAST=$(shuf -e "smart" "median" "mempool" -n 1)
 fi
 
-[ -z "$BITCOIN_DATADIR" ] && BITCOIN_DATADIR="~/.bitcoin"
+[ -z "$BITCOIN_DATADIR" ] && BITCOIN_DATADIR="$HOME/.bitcoin"
 if [ ! -f "$BITCOIN_DATADIR/debug.log" ]; then
     echo "The debug.log file not found. Verify that the Bitcoin directory path is correct."
     exit 1
 fi
 
-[ -z "$IOSTAT_DEVICE" ] && IOSTAT_DEVICE=$(df $BITCOIN_DATADIR | awk 'NR==2 {print $1}')
+[ -z "$IOSTAT_DEVICE" ] && IOSTAT_DEVICE=$(df "$BITCOIN_DATADIR" | awk 'NR==2 {print $1}')
 n_devices=$(echo "$IOSTAT_DEVICE" | tr ',' '\n' | wc -l)
 
 if [ -n "$SIZE_SCREEN" ]; then
@@ -38,44 +38,49 @@ if [ -n "$SIZE_SCREEN" ]; then
     lines=$(echo "$SIZE_SCREEN" | awk -F 'x' '{print $2}')
 else
     cols=$(tput cols)
-    lines=$(( $(tput lines) + $n_devices ))
+    lines=$(( $(tput lines) + n_devices ))
 fi
 
-if [ $cols -lt 150 -o $lines -lt 27 ]; then
+if [ "$cols" -lt 150 ] || [ "$lines" -lt 27 ]; then
     echo "Resize the terminal screen. Requires a minimum of 150 columns and 27 rows."
     exit 1
 fi
 
 netinfo_arg=3
-if [ $lines -lt 30 -o $cols -lt 168 ]; then
+if [ "$lines" -lt 30 ] || [ "$cols" -lt 168 ]; then
     netinfo_arg=0
-elif [ $cols -lt 190 ]; then
+elif [ "$cols" -lt 190 ]; then
     netinfo_arg=1
 fi
 
-msgpreload=$(printf 'Loading\u2026')
+msgpreload=$(printf 'Loading...')
 
 TMUX_CMD="tmux new-session -d -s nodewatch \
     \"echo $msgpreload;watch -c -n 5 -t bitcoin-cli -rpcwait -getinfo -color=always\" \; \
     set-option status off \; set-option key-table key_nodewatch \; \
     resize-window -x $cols -y $lines \; \
-    split-window -v -l $(( $lines - 13 )) \"echo $msgpreload;sleep 0.5;watch -c -n 30 -t '\\\"$SCRIPT_DIR/price_alarm/start.sh\\\"'\" \; \
-    split-window -t 0 -h -l $(( $cols - 45 )) \"'$SCRIPT_DIR/multitail/start.sh' '$BITCOIN_DATADIR/debug.log'\" \; \
+    split-window -v -l $(( lines - 13 )) \"echo $msgpreload;sleep 0.5;watch -c -n 30 -t '\\\"$SCRIPT_DIR/price_alarm/start.sh\\\"'\" \; \
+    split-window -t 0 -h -l $(( cols - 45 )) \"'$SCRIPT_DIR/multitail/start.sh' '$BITCOIN_DATADIR/debug.log'\" \; \
     send-keys C-m \; \
-    split-window -t 2 -h -l $(( $cols - 78 )) \"echo $msgpreload;watch -n 3 -t bitcoin-cli -rpcwait -netinfo $netinfo_arg\" \; "
+    split-window -t 2 -h -l $(( cols - 78 )) \"echo $msgpreload;watch -n 3 -t bitcoin-cli -rpcwait -netinfo $netinfo_arg\" \; "
 
-[ $lines -ge 42 ] && TMUX_CMD+="split-window -t 2 -v -l $(( $lines - 28 )) \"'$SCRIPT_DIR/htop/start.sh'\" \; "
-[ $lines -ge 31 -a $lines -le 41 ] && iostat_target=2
-[ $lines -ge $(( 44 + $n_devices + 1 )) ] && iostat_target=3
-[ -n "$iostat_target" ] && TMUX_CMD+="split-window -t $iostat_target -v -l $(( $n_devices + 3 )) \"iostat -d -x -s -k --human -p $IOSTAT_DEVICE 2\" \; "
+[ "$lines" -ge 42 ] && TMUX_CMD="${TMUX_CMD}split-window -t 2 -v -l $(( lines - 28 )) \"'$SCRIPT_DIR/htop/start.sh'\" \; "
+[ "$lines" -ge 31 ] && [ "$lines" -le 41 ] && iostat_target=2
+[ "$lines" -ge $(( 44 + n_devices + 1 )) ] && iostat_target=3
+[ -n "$iostat_target" ] && TMUX_CMD="${TMUX_CMD}split-window -t $iostat_target -v -l $(( n_devices + 3 )) \"iostat -d -x -s -k --human -p $IOSTAT_DEVICE 2\" \; "
 
-TMUX_CMD+="split-window -t 2 -h -l 18 \"echo $msgpreload;watch -n 30 -t -c '\\\"$SCRIPT_DIR/estimate_fee/start.sh\\\" $FEES_FORECAST'\" \; \
+TMUX_CMD="${TMUX_CMD}split-window -t 2 -h -l 18 \"echo $msgpreload;watch -n 30 -t -c '\\\"$SCRIPT_DIR/estimate_fee/start.sh\\\" $FEES_FORECAST'\" \; \
     select-pane -t 1"
 
-eval $TMUX_CMD
+eval "$TMUX_CMD"
 
-for key in {a..z} {A..Z} / \\ ? F1 F2 F3 F4 F5 F6 F10 C-c C-v C-k C-h; do
-  tmux bind-key -T key_nodewatch $key ""
+letters=$(LC_ALL=C awk 'BEGIN {
+    for (i=97; i<=122; i++) printf "%c\n", i;
+    for (i=65; i<=90; i++) printf "%c\n", i;
+}')
+extras='/ \ ? F1 F2 F3 F4 F5 F6 F10 C-c C-v C-k C-h'
+for key in $letters $extras; do
+  tmux bind-key -T key_nodewatch "$key" ""
 done
 tmux bind-key -T key_nodewatch z confirm-before -p "Detach from this session? (y/n)" detach-client
 tmux bind-key -T key_nodewatch q confirm-before -p "Kill this session? (y/n)" kill-session

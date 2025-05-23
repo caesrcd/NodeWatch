@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 # Check if a command is available
 command_exists() {
@@ -7,7 +7,7 @@ command_exists() {
 
 # Check if the script is running as root
 check_root() {
-    [ "$EUID" -ne 0 ] || return
+    [ "$(id -u)" -ne 0 ] || return
 
     echo "Requires root privileges."
     if command_exists sudo; then
@@ -31,13 +31,13 @@ install_package() {
         elif command_exists dnf; then
             dnf install -y "$pkg"
         elif command_exists pacman; then
-            if [ "$pkg" == "multitail" ]; then
+            if [ "$pkg" = "multitail" ]; then
                 pacman -S --needed --noconfirm base-devel git
                 if command_exists yay; then
                     exec_nosudo="yay -S multitail"
                 else
                     exec_nosudo="git clone https://aur.archlinux.org/multitail.git multitail/build/;"
-                    exec_nosudo+="makepkg -si --noconfirm -D multitail/build/"
+                    exec_nosudo="${exec_nosudo}makepkg -si --noconfirm -D multitail/build/"
                 fi
                 sudo -u "$SUDO_USER" bash -c "$exec_nosudo"
             else
@@ -50,34 +50,39 @@ install_package() {
     done
 }
 
-# List of commands to check
-cmd_list=("bitcoin-cli" "tmux" "htop" "iostat" "multitail" "figlet" "play" "jq" "bc")
-
 # Corresponding packages for each command
-declare -A packages=(
-    ["tmux"]="tmux"
-    ["htop"]="htop"
-    ["iostat"]="sysstat"
-    ["multitail"]="multitail"
-    ["figlet"]="figlet"
-    ["play"]="sox libsox-fmt-all soxr libsoxr"
-    ["jq"]="jq"
-    ["bc"]="bc"
-)
+list_packages() {
+    case "$1" in
+        bc) echo "bc" ;;
+        figlet) echo "figlet" ;;
+        htop) echo "htop" ;;
+        iostat) echo "sysstat" ;;
+        jq) echo "jq" ;;
+        multitail) echo "multitail" ;;
+        play) echo "sox libsox-fmt-all soxr libsoxr" ;;
+        tmux) echo "tmux" ;;
+        watch) echo "watch" ;;
+        *) echo "" ;;
+    esac
+}
+
+# List of commands to check
+set -- bitcoin-cli tmux htop iostat multitail figlet play jq bc watch
 
 # Check if the commands are installed and install if necessary
-for cmd in "${cmd_list[@]}"; do
+for cmd in "$@"; do
     if command_exists "$cmd"; then
         continue
     fi
     echo "The '$cmd' command is not installed."
-    if [ -z "${packages[$cmd]}" ]; then
+    packages="$(list_packages "$cmd")"
+    if [ -z "$packages" ]; then
         echo "This package will have to be installed manually."
         exit 1
     fi
     echo "Installing..."
-    check_root
-    install_package "${packages[$cmd]}"
+    check_root "$@"
+    install_package "$packages"
 done
 
 exit 0
