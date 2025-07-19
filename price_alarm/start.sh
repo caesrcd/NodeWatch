@@ -53,11 +53,11 @@ fi
 # Gets the price according to the symbol parameter and defined time.
 get_price() {
     time_gap=$([ -n "$2" ] && date -d "$2 ago" +%s || echo "$time_now")
-    lower_bound=$((time_gap - 20))
-    upper_bound=$((time_gap + 20))
+    lower_bound=$((time_gap - 60))
+    upper_bound=$((time_gap + 5))
     value=$(echo "$prices" | jq --argjson lower "$lower_bound" --argjson upper "$upper_bound" \
             '[.[] | select(.timestamp >= $lower and .timestamp <= $upper)]')
-    [ "$value" != "[]" ] && echo "$value" | jq -r ".[0].$1"
+    [ "$value" != "[]" ] && echo "$value" | jq -r ".[-1].$1"
 }
 
 # Updates the list of prices obtained from one of the exchange APIs.

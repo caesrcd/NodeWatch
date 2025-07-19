@@ -59,7 +59,7 @@ TMUX_CMD="tmux new-session -d -s nodewatch \
     \"echo $msgpreload;watch -c -n 5 -t bitcoin-cli -rpcwait -getinfo -color=always\" \; \
     set-option status off \; set-option key-table key_nodewatch \; \
     resize-window -x $cols -y $lines \; \
-    split-window -v -l $(( lines - 13 )) \"echo $msgpreload;sleep 0.5;watch -c -n 30 -t '\\\"$SCRIPT_DIR/price_alarm/start.sh\\\"'\" \; \
+    split-window -v -l $(( lines - 13 )) \"echo $msgpreload;sleep 0.5;watch -c -n 10 -t '\\\"$SCRIPT_DIR/price_alarm/start.sh\\\"'\" \; \
     split-window -t 0 -h -l $(( cols - 45 )) \"'$SCRIPT_DIR/multitail/start.sh' '$BITCOIN_DATADIR/debug.log'\" \; \
     send-keys C-m \; \
     split-window -t 2 -h -l $(( cols - 78 )) \"echo $msgpreload;watch -n 3 -t bitcoin-cli -rpcwait -netinfo $netinfo_arg\" \; "
