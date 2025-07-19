@@ -10,6 +10,6 @@ cs_re:yellow,,bold:\[(coindb|validation|mempool)(\:[a-zA-Z]+)?\]
 cs_re:cyan,,bold:\[(txpackages|bench|addrman)(\:[a-zA-Z]+)?\]
 cs_re:red,,bold:\[(leveldb|libevent|mempoolrej|error)(\:[a-zA-Z]+)?\]
 cs_re:magenta,,bold:\[(tor|i2p|proxy)(\:[a-zA-Z]+)?\]
-cs_re:yellow,,bold:WARNING:|expired
+cs_re:yellow,,bold:W(ARNING|arning):|expired
 cs_re:red,,bold:Shutdown: done|incorrect|timeout|failed
 cs_re:blue,,bold:[a-zA-Z0-9_-]+=
