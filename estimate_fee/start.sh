@@ -35,8 +35,10 @@ math_min() {
     echo "$_mhmn_min"
 }
 
-output=$(bitcoin-cli -rpcwait estimatesmartfee 1 2>/dev/null)
+output=$(bitcoin-cli -rpcwait estimatesmartfee 1 2>&1)
 if echo "$output" | jq -e 'has("errors")' >/dev/null 2>&1; then
+    forecast_type="mempool"
+elif echo "$output" | grep -q "Fee estimation disabled"; then
     forecast_type="mempool"
 fi
 mempoolinfo=$(bitcoin-cli -rpcwait getmempoolinfo)
