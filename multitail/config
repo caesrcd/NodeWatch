@@ -1,15 +1,13 @@
 colorscheme:bitcoin
 cs_re:cyan:^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|GMT[-+][0-9]{2})?
-cs_re:red:disconnecting peer=[0-9]+
-cs_re:green:Added connection peer=[0-9]+
-cs_re:green,,bold:Bitcoin Core version v.*|UpdateTip:|received block|succeeded
-cs_re:cyan,,bold:Requesting block
-cs_re:blue,,bold:\[(net|http|rpc)(\:[a-zA-Z]+)?\]
-cs_re:white,,bold:\[(blockstorage|cmpctblock|estimatefee)(\:[a-zA-Z]+)?\]
-cs_re:yellow,,bold:\[(coindb|validation|mempool)(\:[a-zA-Z]+)?\]
-cs_re:cyan,,bold:\[(txpackages|bench|addrman)(\:[a-zA-Z]+)?\]
-cs_re:red,,bold:\[(leveldb|libevent|mempoolrej|error)(\:[a-zA-Z]+)?\]
-cs_re:magenta,,bold:\[(tor|i2p|proxy)(\:[a-zA-Z]+)?\]
-cs_re:yellow,,bold:W(ARNING|arning):|expired
+cs_re:green,,bold:Bitcoin Core version v.*|UpdateTip:|succeeded
+cs_re:white,,bold:Saw new (cmpctblock )?header
+cs_re:yellow,,bold:W(ARNING|arning):?|Potential.*try.*peer|expired
 cs_re:red,,bold:Shutdown: done|incorrect|timeout|failed
-cs_re:blue,,bold:[a-zA-Z0-9_-]+=
+cs_re:blue,,bold:\[(net|http|rpc)(\:[a-zA-Z]+)?\]
+cs_re:cyan,,bold:\[(blockstorage|cmpctblock|estimatefee|prune)(\:[a-zA-Z]+)?\]
+cs_re:yellow,,bold:\[(coindb|validation|mempool|scan|warning)(\:[a-zA-Z]+)?\]
+cs_re:green,,bold:\[(txpackages|txreconciliation|bench|addrman)(\:[a-zA-Z]+)?\]
+cs_re:red,,bold:\[(leveldb|libevent|mempoolrej|error|reindex)(\:[a-zA-Z]+)?\]
+cs_re:white,,bold:\[(rand|walletdb|selectcoins|qt)(\:[a-zA-Z]+)?\]
+cs_re:magenta,,bold:\[(tor|i2p|proxy|zmq)(\:[a-zA-Z]+)?\]
