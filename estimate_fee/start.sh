@@ -1,6 +1,10 @@
 #!/usr/bin/env sh
 
 forecast_type=$1
+case "$forecast_type" in
+    smart|median|mempool) ;;
+    *) forecast_type="smart" ;;
+esac
 
 # Round numbers up to the nearest integer except when it is less than 1
 math_round_up() {
@@ -37,9 +41,11 @@ math_min() {
 
 output=$(bitcoin-cli -rpcwait estimatesmartfee 1 2>&1)
 if echo "$output" | jq -e 'has("errors")' >/dev/null 2>&1; then
-    forecast_type="mempool"
+    smartfee_enabled="false"
 elif echo "$output" | grep -q "Fee estimation disabled"; then
-    forecast_type="mempool"
+    smartfee_enabled="false"
+else
+    smartfee_enabled="true"
 fi
 mempoolinfo=$(bitcoin-cli -rpcwait getmempoolinfo)
 mempool_loaded=$(echo "$mempoolinfo" | jq -r '.loaded')
@@ -79,7 +85,12 @@ if [ "$mempool_loaded" = "true" ] && [ "$forecast_type" = "median" ]; then
     block1=$(math_max "$block1" "$block2" "$block3" "$laterblk")
     block2=$(math_max "$block2" "$block3" "$laterblk")
     block3=$(math_max "$block3" "$laterblk")
-elif [ "$forecast_type" = "mempool" ]; then
+elif [ "$smartfee_enabled" = "true" ] && [ "$forecast_type" = "smart" ]; then
+    block1=$(bitcoin-cli -rpcwait estimatesmartfee 2 "economical" | jq '.feerate * 1e5')
+    block2=$(bitcoin-cli -rpcwait estimatesmartfee 4 "economical" | jq '.feerate * 1e5')
+    block3=$(bitcoin-cli -rpcwait estimatesmartfee 8 "economical" | jq '.feerate * 1e5')
+    laterblk=$(bitcoin-cli -rpcwait estimatesmartfee 16 "economical" | jq '.feerate * 1e5')
+else
     fees_recommended=$(curl -s "https://mempool.space/api/v1/fees/recommended")
     if [ -z "$fees_recommended" ]; then
         echo "Error: Failed to retrieve data from the API."
@@ -89,11 +100,6 @@ elif [ "$forecast_type" = "mempool" ]; then
     block2=$(echo "$fees_recommended" | jq -r '.halfHourFee')
     block3=$(echo "$fees_recommended" | jq -r '.hourFee')
     laterblk=$(echo "$fees_recommended" | jq -r '.economyFee')
-else
-    block1=$(bitcoin-cli -rpcwait estimatesmartfee 2 "economical" | jq '.feerate * 1e5')
-    block2=$(bitcoin-cli -rpcwait estimatesmartfee 4 "economical" | jq '.feerate * 1e5')
-    block3=$(bitcoin-cli -rpcwait estimatesmartfee 8 "economical" | jq '.feerate * 1e5')
-    laterblk=$(bitcoin-cli -rpcwait estimatesmartfee 16 "economical" | jq '.feerate * 1e5')
 fi
 
 block1=$(math_round_up "$block1")" sat/vB"
