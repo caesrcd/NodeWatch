@@ -57,7 +57,8 @@ get_price() {
     upper_bound=$((time_gap + 5))
     value=$(echo "$prices" | jq --argjson lower "$lower_bound" --argjson upper "$upper_bound" \
             '[.[] | select(.timestamp >= $lower and .timestamp <= $upper)]')
-    [ "$value" != "[]" ] && echo "$value" | jq -r ".[-1].$1"
+    index=$([ -n "$3" ] && echo "$3" || echo "-1")
+    [ "$value" != "[]" ] && echo "$value" | jq -r ".[$index].$1"
 }
 
 # Updates the list of prices obtained from one of the exchange APIs.
@@ -254,7 +255,7 @@ body="${body}Bitcoin Price - ${first_char}${rest}\n\n"
 
 # Sets the color of the current dollar price compared to the price 30 seconds ago
 price_now=$(get_price "$curdef")
-price_ago=$(get_price "$curdef" 30sec)
+price_ago=$(get_price "$curdef" "0sec" "-2")
 price_ath=$(echo "$ath_prices" | jq -r ".${curdef}")
 color=$(variation_color "$price_now" "$price_ago" "$price_ath")
 
@@ -288,7 +289,7 @@ for currency in $(echo "$exchanges" | jq -r ".${exchange_selected}.api | to_entr
 
     # Sets the color of the current price compared to the price 30 seconds ago
     price_now=$(get_price "${currency}")
-    price_ago=$(get_price "${currency}" 30sec)
+    price_ago=$(get_price "${currency}" "0sec" "-2")
     price_ath=$(echo "$ath_prices" | jq -r ".${currency}")
     color=$(variation_color "$price_now" "$price_ago" "$price_ath")
 
