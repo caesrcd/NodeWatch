@@ -1,6 +1,19 @@
 #!/usr/bin/env sh
 
-forecast_type=$1
+SCRIPT_PATH=$(readlink -f "$0")
+SCRIPT_DIR=$(dirname "$(dirname "$SCRIPT_PATH")")
+CONFIG_FILE="$SCRIPT_DIR/config.env"
+
+if [ -f "$CONFIG_FILE" ]; then
+    BITCOIN_DATADIR=$(awk -F '=' '/^BITCOIN_DATADIR=/ {last=$2} END {print last}' "$CONFIG_FILE")
+    FEES_FORECAST=$(awk -F '=' '/^FEES_FORECAST=/ {last=$2} END {print last}' "$CONFIG_FILE")
+fi
+[ -z "$BITCOIN_DATADIR" ] && BITCOIN_DATADIR="$HOME/.bitcoin"
+[ -z "$FEES_FORECAST" ] && FEES_FORECAST="smart"
+
+BTC_CLI="bitcoin-cli -datadir=$BITCOIN_DATADIR -rpcwait"
+
+forecast_type="$FEES_FORECAST"
 case "$forecast_type" in
     smart|median|mempool) ;;
     *) forecast_type="smart" ;;
@@ -39,7 +52,7 @@ math_min() {
     echo "$_mhmn_min"
 }
 
-output=$(bitcoin-cli -rpcwait estimatesmartfee 1 2>&1)
+output=$($BTC_CLI estimatesmartfee 1 2>&1)
 if echo "$output" | jq -e 'has("errors")' >/dev/null 2>&1; then
     smartfee_enabled="false"
 elif echo "$output" | grep -q "Fee estimation disabled"; then
@@ -47,11 +60,11 @@ elif echo "$output" | grep -q "Fee estimation disabled"; then
 else
     smartfee_enabled="true"
 fi
-mempoolinfo=$(bitcoin-cli -rpcwait getmempoolinfo)
+mempoolinfo=$($BTC_CLI getmempoolinfo)
 mempool_loaded=$(echo "$mempoolinfo" | jq -r '.loaded')
 if [ "$mempool_loaded" = "true" ] && [ "$forecast_type" = "median" ]; then
     fees="[]"
-    rawmempool=$(bitcoin-cli -rpcwait getrawmempool true)
+    rawmempool=$($BTC_CLI getrawmempool true)
     if [ "$rawmempool" != "{}" ]; then
         fees=$(echo "$rawmempool" | jq -s \
           'map(to_entries[] | {fee: (.value.fees.modified / .value.vsize * 1e8), weight: .value.weight})
@@ -86,10 +99,10 @@ if [ "$mempool_loaded" = "true" ] && [ "$forecast_type" = "median" ]; then
     block2=$(math_max "$block2" "$block3" "$laterblk")
     block3=$(math_max "$block3" "$laterblk")
 elif [ "$smartfee_enabled" = "true" ] && [ "$forecast_type" = "smart" ]; then
-    block1=$(bitcoin-cli -rpcwait estimatesmartfee 2 "economical" | jq '.feerate * 1e5')
-    block2=$(bitcoin-cli -rpcwait estimatesmartfee 4 "economical" | jq '.feerate * 1e5')
-    block3=$(bitcoin-cli -rpcwait estimatesmartfee 8 "economical" | jq '.feerate * 1e5')
-    laterblk=$(bitcoin-cli -rpcwait estimatesmartfee 16 "economical" | jq '.feerate * 1e5')
+    block1=$($BTC_CLI estimatesmartfee 2 "economical" | jq '.feerate * 1e5')
+    block2=$($BTC_CLI estimatesmartfee 4 "economical" | jq '.feerate * 1e5')
+    block3=$($BTC_CLI estimatesmartfee 8 "economical" | jq '.feerate * 1e5')
+    laterblk=$($BTC_CLI estimatesmartfee 16 "economical" | jq '.feerate * 1e5')
 else
     fees_recommended=$(curl -s "https://mempool.space/api/v1/fees/recommended")
     if [ -z "$fees_recommended" ]; then
